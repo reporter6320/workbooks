@@ -70,9 +70,9 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
 .worked ol.steps > li{counter-increment:s;padding-left:34px;position:relative;margin:10px 0}
 .worked ol.steps > li::before{content:counter(s);position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font:600 12px/22px var(--mono);text-align:center}
 details{background:var(--surface);border:1px solid var(--line);border-radius:8px;margin:8px 0;padding:0}
-summary{cursor:pointer;padding:10px 14px;font-weight:500;list-style:none;display:flex;gap:10px;align-items:baseline}
+summary{cursor:pointer;padding:10px 14px;font-weight:500;list-style:none;display:block}
 summary::-webkit-details-marker{display:none}
-summary .lv{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:3px;background:var(--code-bg);color:var(--muted);flex:none}
+summary .lv{display:inline-block;margin-right:8px;vertical-align:1px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:3px;background:var(--code-bg);color:var(--muted);flex:none}
 summary .lv.l2{background:var(--accent-soft);color:var(--accent)}
 summary .lv.l3{background:var(--warn-soft);color:var(--warn)}
 summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
@@ -132,8 +132,8 @@ img{max-width:100%}[hidden]{display:none!important}
   <p class="rule">From the course's grading table (Logistics, slide 11): <strong>an A needs all three of</strong> (1) a pass on all 4 assignments, (2) all 3 bonus exercises, and (3) an A on the final project. Every other combination caps you lower: missing one bonus gives at most C, and a B project gives a B.</p>
   <div class="tbl"><table>
     <tr><th>Requirement</th><th>What it takes</th><th>What decides it</th><th>Workbook support</th></tr>
-    <tr><td>Pass all 4 assignments</td><td>Due Nov 6, Nov 20, Dec 4, Dec 18. No late submissions unless approved in advance.</td><td>Correct code, and answers you can defend without AI</td><td>Modules 5–9 (A1); new modules ahead of A2–A4</td></tr>
-    <tr><td>All 3 bonus exercises</td><td>Submitted inside Assignments 2, 3 and 4, then <strong>one oral examination</strong> that you sign up for</td><td>Whether you can explain your bonus code live</td><td>Module 11 drill; a bonus module for each when released</td></tr>
+    <tr><td>Pass all 4 assignments</td><td>Due Nov 6, Nov 20, Dec 4, Dec 18. No late submissions unless approved in advance.</td><td>Correct code, and answers you can defend without AI</td><td>Modules 5–9 (A1); Modules 12–15 (A2); more ahead of A3–A4</td></tr>
+    <tr><td>All 3 bonus exercises</td><td>Submitted inside Assignments 2, 3 and 4, then <strong>one oral examination</strong> that you sign up for</td><td>Whether you can explain your bonus code live</td><td>Module 11 drill; Module 15 prepares bonus 1 (iPIC3D mover)</td></tr>
     <tr><td>Project grade A</td><td>Proposal Nov 13, report Jan 5, <strong>presentation Jan 7 or 8</strong> (optional for others, required for A/B). Your individual llm.c project is approved.</td><td>Depth of analysis on ≥ 3 topics, measured and explained</td><td>Modules 4 and 8 now; project modules on tiling, cuBLAS, mixed precision, Tensor Cores</td></tr>
   </table></div>
 
@@ -1102,6 +1102,516 @@ for (int t = 1; t &lt;= steps; t++) {
   <details><summary><span class="lv l2">Explain</span>Why must a stencil use two buffers, and why is each time step a separate launch? [9]</summary><div class="ans"><p>No ordering between threads means in-place updates mix old and new values. There's no barrier across blocks inside a kernel, and launches in one stream are ordered, so each launch boundary synchronizes all blocks.</p></div></details>
   <label class="check"><input type="checkbox" id="c11"> I can answer all of these without notes</label>
 </section>
+
+<!-- ================= PART 2 DIVIDER ================= -->
+<section class="plan" id="part2" style="margin-top:56px">
+  <div class="eyebrow">Part 2 · Lecture 3 (CUDA memory) · Book Chapter 5 · Assignment 2</div>
+  <h2>Memory: coalescing, shared memory and tiling</h2>
+  <p>Part 1 taught you to get <em>correct</em> results. Part 2 is about getting them <em>fast</em>, and on a GPU that almost always means using memory well. Modules 12–15 cover everything Assignment 2 asks for, including the iPIC3D bonus. They teach each technique on a closely related example; the assignment versions are yours to write.</p>
+</section>
+
+<!-- ================= MODULE 12 ================= -->
+<section class="mod" id="m12" data-title="Memory spaces & coalescing">
+  <div class="eyebrow">Module 12 · Lecture 3 (3-CUDA-memory) · Book §5.1–5.2 · <code>3-memory-coalescing.cu</code></div>
+  <h2>Memory spaces and coalesced access</h2>
+  <p class="goal">Why the order in which threads touch memory can change speed by 5× or more.</p>
+  <ul class="goals"><li>After this module you can: say where each kind of variable lives, explain DRAM bursts, decide whether a warp's access is coalesced, count the memory transactions it causes, and confirm it in Nsight Compute.</li></ul>
+
+  <h3>12.1 Where does each variable live?</h3>
+  <div class="tbl"><table>
+    <tr><th>Space</th><th>Declared as</th><th>Visible to</th><th>Lives for</th><th>Speed</th></tr>
+    <tr><td>Registers</td><td>Ordinary local variables (<code>int i</code>, <code>float x</code>)</td><td>One thread</td><td>The kernel</td><td>Fastest</td></tr>
+    <tr><td>Local</td><td>Large local arrays, or registers that "spill"</td><td>One thread</td><td>The kernel</td><td>Slow: physically in global memory (cached)</td></tr>
+    <tr><td>Shared</td><td><code>__shared__</code></td><td>All threads of one block</td><td>The kernel</td><td>Fast, on-chip</td></tr>
+    <tr><td>Global</td><td><code>cudaMalloc</code></td><td>All threads, plus host via copies</td><td>Until <code>cudaFree</code></td><td>Slow, off-chip DRAM</td></tr>
+    <tr><td>Constant</td><td><code>__constant__</code>, set with <code>cudaMemcpyToSymbol</code></td><td>All threads (read-only)</td><td>The application</td><td>Fast when all threads of a warp read the same address</td></tr>
+  </table></div>
+  <p>The lecture's check question: in <code>distanceKernel</code>, the local variable <code>x</code> is in a <strong>register</strong>. Each thread has its own copy and no other thread can see it. <code>d_out</code> is different: the <em>pointer</em> is passed by value into a register in each thread, but the <em>array it points to</em> is in global memory, visible to all threads.</p>
+
+  <h3>12.2 How DRAM is read: bursts</h3>
+  <p>DRAM stores each bit in a tiny capacitor, and reading a cell is slow: select a bank, open a row, select a column. The DRAM core runs at only a fraction (1/4 or 1/8) of the interface speed. To compensate, every access reads a whole <strong>burst</strong> of consecutive bytes into a buffer and sends them all. On a modern GPU the unit is a <strong>32-byte sector</strong>, grouped into 128-byte lines.</p>
+  <p>The consequence: reading 4 bytes costs about the same as reading the 32 bytes around them. If threads use those neighbouring bytes, the transfer is fully used. If they don't, most of the bandwidth is wasted.</p>
+
+  <h3>12.3 Coalescing</h3>
+  <p>All 32 threads of a warp execute a load instruction together. The hardware collects their 32 addresses and issues as few sector requests as possible. When the threads access <strong>consecutive addresses</strong>, typically <code>array[base + threadIdx.x]</code>, the 32 floats (128 bytes) fit in 4 sectors. That's a <strong>coalesced</strong> access.</p>
+  <div class="svgbox">
+  <svg viewBox="0 0 640 170" role="img" aria-label="Coalesced: 32 threads read 128 consecutive bytes in 4 sectors. Strided: each thread hits a different sector.">
+    <text x="0" y="14">coalesced: thread t reads a[t]</text>
+    <g id="coal1"></g>
+    <text x="0" y="100">strided: thread t reads a[t * 8192]</text>
+    <g id="coal2"></g>
+    <text x="0" y="164" class="mut">each box = one 32-byte sector fetched from DRAM; filled part = bytes actually used</text>
+  </svg></div>
+  <p>When the addresses are spread out, the warp needs many sectors and uses only 4 bytes of each. Examples: <code>a[threadIdx.x * stride]</code>, a column of a row-major matrix, or an array of large structs.</p>
+  <div class="formula">efficiency = bytes the threads need ÷ bytes fetched     (coalesced float: 128/128 = 100%; worst case: 128/1024 = 12.5%)</div>
+
+  <h3>12.4 Matrices: rows good, columns bad</h3>
+  <p>For a row-major matrix, element (r, c) is at <code>r * cols + c</code>. Consecutive <em>columns</em> are adjacent in memory and consecutive <em>rows</em> are <code>cols</code> elements apart. So:</p>
+  <ul>
+    <li>If neighbouring threads (consecutive <code>threadIdx.x</code>) handle neighbouring <strong>columns</strong>, accesses coalesce.</li>
+    <li>If they handle neighbouring <strong>rows</strong>, each thread is <code>cols × 4</code> bytes from the next. In the demo that's 32 KB, a different sector for every thread.</li>
+  </ul>
+  <p>This is the whole difference between the two kernels in <code>3-memory-coalescing.cu</code>. They do the same copy; only the mapping of x and y changes. In naive matrix multiply (Module 9), threads in a warp read <code>B[k*P + c]</code>, which is coalesced, and the same <code>A[r*N + k]</code>, a broadcast. That's why naive matmul is still reasonable.</p>
+
+  <h3>12.5 Book Chapter 5: two more levers</h3>
+  <ul>
+    <li><strong>Memory parallelism (§5.2).</strong> DRAM has several channels and banks that work in parallel. To use them all, many requests must be in flight at once, which is another reason to have many warps resident (Module 2's Little's law).</li>
+    <li><strong>Thread granularity (§5.5).</strong> Sometimes it pays to give each thread <em>more</em> work, e.g. two outputs instead of one, when neighbouring threads would otherwise load the same data twice. Fewer threads, less redundant traffic.</li>
+  </ul>
+
+  <div class="worked">
+    <div class="lbl">Worked example: the coalescing demo, predicted</div>
+    <p><strong>Problem.</strong> <code>3-memory-coalescing.cu</code> copies an 8192 × 8192 float matrix with <code>block(32, 1)</code>, once row-wise and once column-wise. Predict the sectors per warp request and the run times on a T4.</p>
+    <ol class="steps">
+      <li>Data moved: 2 × 8192² × 4 B = 512 MiB (read + write), the <code>matBytes</code> the program prints.</li>
+      <li><strong>Row-wise:</strong> the 32 threads of a warp have consecutive <code>c</code>, so they read 32 consecutive floats = 128 B = <strong>4 sectors per request</strong>. At ~260 GB/s achievable: 537 MB / 260 GB/s ≈ <strong>2 ms</strong>.</li>
+      <li><strong>Column-wise:</strong> the 32 threads have consecutive <code>r</code>, so their addresses are 8192 × 4 = 32 KB apart: <strong>32 sectors per request</strong>, each 32 B for 4 useful bytes. Up to 8× more DRAM traffic.</li>
+      <li>In practice the slowdown is less than 8× (often 3–6×). Neighbouring <em>warps</em> read the adjacent columns soon after, so some sectors are still in L2 when needed. That partial rescue by the cache is worth mentioning in a report.</li>
+      <li>To confirm, Nsight Compute's Memory Workload Analysis shows sectors per request (4 vs 32) and DRAM throughput, and SourceCounters flags the uncoalesced line.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Where do these live: <code>int i</code> in a kernel, <code>float buf[1000]</code> in a kernel, an array from <code>cudaMalloc</code>, <code>__shared__ float t[256]</code>?</summary><div class="ans"><p>Register; local memory (too big for registers, so it goes to off-chip memory); global; shared.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does reading one float cost almost as much as reading eight neighbouring floats?</summary><div class="ans"><p>DRAM always transfers whole bursts (32-byte sectors on the GPU). The slow part is opening the row and starting the transfer; once that's done, the neighbouring bytes come almost for free.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>What's the difference between L1 cache and shared memory, given they're the same hardware?</summary><div class="ans"><p>L1 is managed by hardware: it decides what to keep, and you can't rely on it. Shared memory is managed by the programmer: you choose exactly what to load, when, and who uses it, and it stays until the block ends. Since Volta they share one pool, and the split is configurable.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A kernel reads <code>a[2 * threadIdx.x]</code> (floats). How many sectors does a warp need, and what's the efficiency?</summary><div class="ans"><p>The warp touches 64 consecutive floats = 256 B = 8 sectors, but uses only every other float: 128/256 = 50%.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Particles are stored as <code>struct {double x,y,z,u,v,w;} p[N]</code> and a kernel updates only <code>p[i].x</code>. Coalesced? How would you fix it?</summary><div class="ans"><p>No. Each struct is 48 bytes, so consecutive threads' <code>x</code> values are 48 B apart: 32 threads span 1,536 B for 256 useful bytes (about 17%). Use a structure of arrays (separate <code>x[]</code>, <code>y[]</code>, …), so the <code>x</code> values are contiguous. This matters for the iPIC3D bonus (Module 15).</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>In the 2D kernels of Assignment 1, why does <code>col = blockIdx.x*blockDim.x + threadIdx.x</code> matter?</summary><div class="ans"><p>It puts consecutive threads on consecutive columns, so reads and writes of <code>C[row*P + col]</code> and <code>B[k*P + col]</code> are coalesced. Swapping it makes every warp access strided.</p></div></details>
+
+  <div class="lab"><h4>Lab: measure coalescing</h4>
+    <ol>
+      <li>Add a CHECK macro and CUDA-event timers around each kernel in <code>3-memory-coalescing.cu</code>, and print the time and effective bandwidth (<code>matBytes / time</code>).</li>
+      <li>Predict both numbers using the worked example, then run on Colab.</li>
+      <li>Profile with <code>ncu --section MemoryWorkloadAnalysis_Tables --section SourceCounters ./coalescing</code> and find sectors per request for each kernel.</li>
+      <li>Change the block to <code>(32, 8)</code> and then <code>(8, 32)</code>. Which kernel improves, and why?</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+<pre><code>cudaEvent_t s, e; cudaEventCreate(&amp;s); cudaEventCreate(&amp;e); float ms;
+cudaEventRecord(s);
+copyRowWise&lt;&lt;&lt;gridRow, block&gt;&gt;&gt;(d_in, d_out, ROWS, COLS);
+cudaEventRecord(e); cudaEventSynchronize(e); cudaEventElapsedTime(&amp;ms, s, e);
+printf("row-wise    %.2f ms  %.0f GB/s\n", ms, matBytes / ms / 1e6);
+// same for copyColumnWise</code></pre>
+      <p><strong>Expected on a T4:</strong> row-wise about 2–2.5 ms (210–260 GB/s). Column-wise several times slower, typically 6–12 ms. ncu: about 4 sectors/request for row-wise, close to 32 for column-wise.</p>
+      <p><strong>Step 4:</strong> with <code>(32, 8)</code> the row-wise kernel stays fast (x still runs along columns). With <code>(8, 32)</code> only 8 consecutive threads share a row, so each warp covers 4 rows × 8 columns and the row-wise kernel gets slower (4 separate 32-byte pieces per request), while column-wise improves a little. The rule: make <code>blockDim.x</code> at least 32 along the contiguous dimension.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c12"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 13 ================= -->
+<section class="mod" id="m13" data-title="Shared memory & atomics">
+  <div class="eyebrow">Module 13 · Lecture 2.4 (Shared and Atomics) · Lecture 3 · 2D Shared Memory tutorial · <code>kernel.cu</code> dot product</div>
+  <h2>Shared memory, synchronization and atomics</h2>
+  <p class="goal">A fast scratchpad that threads of a block share, and the rules that keep its use correct.</p>
+  <ul class="goals"><li>After this module you can: declare static and dynamic shared arrays, use <code>__syncthreads()</code> correctly (and spot when it deadlocks), handle halo cells, explain race conditions and fix them with atomics, write a tree reduction, and explain bank conflicts.</li></ul>
+
+  <h3>13.1 Why shared memory?</h3>
+  <p>In the 1D stencil <code>out[i] = (in[i-1] - 2·in[i] + in[i+1]) / h²</code>, every input value is read from global memory by <strong>three</strong> threads. Shared memory removes that redundancy: the block loads its piece of the input <em>once</em> into on-chip memory, then all threads read their neighbours from there. The recipe from the lecture:</p>
+  <ol>
+    <li>Break the global array into tiles, one per block.</li>
+    <li>Allocate a tile in shared memory.</li>
+    <li>Fill the tile <em>collectively</em>: each thread loads one (or a few) elements.</li>
+    <li>Synchronize, then compute using the tile.</li>
+  </ol>
+
+  <h3>13.2 Declaring shared arrays</h3>
+<pre><code>// static: size known at compile time
+__shared__ float s_in[TPB + 2 * RAD];
+
+// dynamic: size given at launch, as the 3rd launch parameter (in bytes)
+extern __shared__ float s_in[];
+size_t smem = (TPB + 2 * RAD) * sizeof(float);
+kernel&lt;&lt;&lt;blocks, TPB, smem&gt;&gt;&gt;(…);</code></pre>
+  <ul>
+    <li>A block can normally use up to <strong>48 KB</strong>. More needs an opt-in: <code>cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, bytes)</code>, up to <code>prop.sharedMemPerBlockOptin</code> (64 KB on a T4, 227 KB on an H100).</li>
+    <li>Several dynamic arrays share one <code>extern</code> buffer: declare one array and split it with pointers, e.g. <code>float *sA = buf; float *sB = buf + tileA_elems;</code>.</li>
+    <li><strong>Shared memory limits occupancy</strong>, like registers (Module 8). With 64 KB per SM on a T4 and 16 KB per block, at most 4 blocks fit per SM.</li>
+  </ul>
+
+  <h3>13.3 <code>__syncthreads()</code>: the block barrier</h3>
+  <p>Threads of a block run in no particular order, warp by warp. After thread 5 writes <code>s_in[5]</code>, thread 6 can't assume thread 7 has written <code>s_in[7]</code> yet. <code>__syncthreads()</code> makes every thread in the block wait until <strong>all threads of that block</strong> have reached it. Every write before the barrier is then visible to every thread after it.</p>
+  <div class="tbl"><table>
+    <tr><th></th><th><code>__syncthreads()</code></th><th><code>cudaDeviceSynchronize()</code></th></tr>
+    <tr><td>Called from</td><td>GPU code (inside a kernel)</td><td>CPU code</td></tr>
+    <tr><td>Waits for</td><td>All threads of the <em>same block</em></td><td>All GPU work queued by the host</td></tr>
+    <tr><td>Use it for</td><td>Shared memory is filled, or finished with, before the next phase</td><td>Timing, error checks, reading results</td></tr>
+  </table></div>
+  <div class="key pit"><strong>The deadlock rule.</strong> Every thread of the block must reach the same <code>__syncthreads()</code>. If some threads return early or skip it inside an <code>if</code>, the behaviour is undefined: the kernel may hang or silently compute garbage. So <strong>don't</strong> put <code>if (i &gt;= n) return;</code> before a barrier. Instead, let out-of-range threads load a neutral value (0) and skip only the final write.</div>
+
+  <h3>13.4 Halo cells</h3>
+  <p>A stencil of radius RAD needs RAD extra values on each side of the tile, called <strong>halo</strong> (or ghost) cells. The tile holds <code>blockDim.x + 2·RAD</code> values, and thread <em>t</em> stores its own value at local index <code>s_idx = t + RAD</code>. The first RAD threads also load the left and right halos. Here's a version that is safe at every boundary:</p>
+<pre><code>#define RAD 1
+__global__ void ddShared(float *out, const float *in, int n, float h) {
+  extern __shared__ float s[];
+  int i = blockIdx.x * blockDim.x + threadIdx.x;   // global index
+  int s_idx = threadIdx.x + RAD;                   // local index
+  s[s_idx] = (i &lt; n) ? in[i] : 0.0f;               // body (0 if past the end)
+  if (threadIdx.x &lt; RAD) {                         // halos
+    int L = i - RAD, R = i + blockDim.x;
+    s[s_idx - RAD]        = (L &gt;= 0) ? in[L] : 0.0f;
+    s[s_idx + blockDim.x] = (R &lt; n)  ? in[R] : 0.0f;
+  }
+  __syncthreads();                                 // ALL threads reach this
+  if (i &gt; 0 &amp;&amp; i &lt; n - 1)                           // guard only the write
+    out[i] = (s[s_idx - 1] - 2.f * s[s_idx] + s[s_idx + 1]) / (h * h);
+}
+// launch: ddShared&lt;&lt;&lt;blocks, TPB, (TPB + 2*RAD) * sizeof(float)&gt;&gt;&gt;(…)</code></pre>
+  <div class="key pit"><strong>Two bugs in the lecture slide's version.</strong> (1) It does <code>if (i &gt;= size) return;</code> before <code>__syncthreads()</code>, which breaks the barrier in the last, partial block. (2) Thread 0 of block 0 reads <code>d_in[i - RAD] = d_in[-1]</code>, and the last block reads past the end: out-of-bounds accesses. <code>compute-sanitizer</code> catches the second. Fixing both is a good oral-exam story.</div>
+
+  <h3>13.5 Race conditions and atomics</h3>
+  <p>The dot product example (<code>main.cpp</code>, <code>kernel.cu</code>) first has each block sum its own products in shared memory, then adds the block sum to one global result. With <code>ATOMIC 0</code> it does <code>*d_res += blockSum;</code>. That single line is really three steps: <strong>read</strong> d_res, <strong>add</strong>, <strong>write</strong>. When two blocks do this at once:</p>
+  <div class="tbl"><table>
+    <tr><th>Time</th><th>Block 3</th><th>Block 7</th><th>d_res</th></tr>
+    <tr><td class="num">1</td><td>reads 128</td><td></td><td class="num">128</td></tr>
+    <tr><td class="num">2</td><td></td><td>reads 128</td><td class="num">128</td></tr>
+    <tr><td class="num">3</td><td>writes 128 + 64 = 192</td><td></td><td class="num">192</td></tr>
+    <tr><td class="num">4</td><td></td><td>writes 128 + 64 = 192</td><td class="num">192 (should be 256)</td></tr>
+  </table></div>
+  <p>One update is lost. This is a <strong>race condition</strong>: the result depends on timing, so it can differ between runs and even be right sometimes, which makes it dangerous. <code>atomicAdd(d_res, blockSum)</code> does the read-add-write as one indivisible operation, so no update is lost. Atomics exist for add, sub, min, max, exch, CAS and bitwise operations, on int, float and (since Pascal) double.</p>
+  <p><strong>Cost:</strong> atomics on the same address are serialized. One atomic per <em>block</em> (as here) is cheap; one per <em>thread</em> on a single counter can be very slow. That's why we reduce within the block first.</p>
+
+  <h3>13.6 Doing the block sum in parallel: tree reduction</h3>
+  <p>In <code>kernel.cu</code>, thread 0 adds all 64 products alone while 63 threads wait, which is O(TPB) serial steps. A <strong>tree reduction</strong> halves the active threads each step, so it finishes in log₂(TPB) steps:</p>
+<pre><code>__shared__ int s[TPB];                                  // TPB a power of 2
+s[tid] = (idx &lt; n) ? a[idx] * b[idx] : 0;              // 0 for threads past n
+__syncthreads();
+for (int stride = blockDim.x / 2; stride &gt; 0; stride /= 2) {
+  if (tid &lt; stride) s[tid] += s[tid + stride];
+  __syncthreads();                                      // outside the if: every thread reaches it
+}
+if (tid == 0) atomicAdd(res, s[0]);</code></pre>
+  <p>With stride halving from the top, active threads are always the contiguous <code>tid &lt; stride</code>, so whole warps either work or idle. That avoids divergence until stride &lt; 32.</p>
+
+  <h3>13.7 Bank conflicts</h3>
+  <p>Shared memory is divided into <strong>32 banks</strong>, each 4 bytes wide; element <code>s[i]</code> (float) is in bank <code>i % 32</code>. If the 32 threads of a warp access 32 different banks (or the same word, which broadcasts), the access takes one cycle. If <em>k</em> threads hit different words in the same bank, it takes <em>k</em> cycles: a <strong>k-way bank conflict</strong>.</p>
+  <ul>
+    <li><code>s[threadIdx.x]</code>: conflict-free.</li>
+    <li><code>s[threadIdx.x * 2]</code>: 2-way conflict.</li>
+    <li>Column of a 32×32 tile, <code>tile[threadIdx.x][c]</code>: every element is in the same bank, a 32-way conflict. The classic fix is padding: <code>__shared__ float tile[32][33];</code> shifts each row by one bank.</li>
+  </ul>
+  <p>The 2D Shared Memory tutorial (needed for Assignment 3) explores exactly this with <code>setRowReadRow</code> (conflict-free) against <code>setColReadCol</code> (conflicts), using a 16 × 32 tile. Nsight Compute reports conflicts under Memory Workload Analysis.</p>
+
+  <div class="worked">
+    <div class="lbl">Worked example: find every bug in the dot product</div>
+    <p><strong>Problem.</strong> <code>kernel.cu</code> is run with N = 1024, TPB = 64. Predict the output with ATOMIC 1 and ATOMIC 0, then find the bugs that would appear for N = 1000.</p>
+    <ol class="steps">
+      <li>Blocks: 1024/64 = 16. Each block's products are all 1, so each prints <code>blockSum = 64</code>, in any block order.</li>
+      <li>ATOMIC 1: <code>gpu result = 1024</code>, always matching the CPU.</li>
+      <li>ATOMIC 0: often still 1024 for only 16 blocks, because they rarely collide, but sometimes less (e.g. 960). Run it 20 times or with more blocks (N = 2²⁰) and the losses become frequent. "It passed once" proves nothing for a race.</li>
+      <li>N = 1000: the last block (block 15) has 1000 − 960 = 40 valid threads. Threads 40–63 <code>return</code> before <code>__syncthreads()</code>, which breaks the barrier rule.</li>
+      <li>Thread 0 of that block then sums <code>s_prod[0..63]</code>, including 24 entries nobody wrote, so the result is garbage. Fix: no early return; set <code>s_prod[s_idx] = (idx &lt; n) ? d_a[idx]*d_b[idx] : 0;</code> and keep the barrier unconditional.</li>
+      <li>Also: no error checking, and the <code>printf</code> in the kernel would dominate the runtime for large N.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>How do you pass the size of a dynamic shared array?</summary><div class="ans"><p>As the third launch parameter, in bytes: <code>kernel&lt;&lt;&lt;grid, block, bytes&gt;&gt;&gt;</code>, with <code>extern __shared__ float s[];</code> in the kernel.</p></div></details>
+  <details><summary><span class="lv">Recall</span>What does <code>__syncthreads()</code> wait for, and what does it <em>not</em> synchronize?</summary><div class="ans"><p>All threads of the calling block. It does nothing across blocks; for that you need separate kernel launches (or atomics, or cooperative groups).</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is a race condition worse than a crash?</summary><div class="ans"><p>It gives plausible, varying results and may pass tests by luck. A crash is reported; a race can go unnoticed into your results.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why reduce inside the block before the <code>atomicAdd</code> instead of one atomic per thread?</summary><div class="ans"><p>Atomics on the same address are serialized. Per-thread atomics mean N serialized updates; per-block means N/TPB, a factor of TPB fewer. The in-block reduction runs in parallel in fast shared memory.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A stencil has radius 2 and blocks of 128 threads. How big is the shared tile, and how many global loads does a block make compared with no shared memory?</summary><div class="ans"><p>128 + 2·2 = 132 floats (528 bytes). With shared memory, 132 loads per block. Without, each of the 128 threads loads 5 values = 640 loads. That's about 4.8× fewer global loads (some are cache hits anyway, which is why measured gains are smaller).</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Is this correct? <code>if (tid &lt; stride) { s[tid] += s[tid+stride]; __syncthreads(); }</code></summary><div class="ans"><p>No. The barrier is inside a condition that only some threads meet, so threads with <code>tid &gt;= stride</code> never reach it: undefined behaviour, a likely hang. Move <code>__syncthreads()</code> outside the <code>if</code>.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Which accesses have bank conflicts for <code>__shared__ float t[32][32]</code>: (a) <code>t[ty][tx]</code>, (b) <code>t[tx][ty]</code>, (c) <code>t[tx][ty]</code> with <code>t[32][33]</code>? (tx = threadIdx.x varies within a warp.)</summary><div class="ans"><p>(a) None: consecutive tx are consecutive banks. (b) 32-way: t[tx][ty] is at tx·32 + ty, and every tx gives the same bank. (c) None: the address is tx·33 + ty, and since 33 mod 32 = 1, each tx lands in a different bank.</p></div></details>
+
+  <div class="lab"><h4>Lab: races and reductions</h4>
+    <ol>
+      <li>Build the dot product: <code>nvcc -arch=sm_75 main.cpp kernel.cu -o dot</code>. Run with ATOMIC 1, then ATOMIC 0, 20 times each with N = 1024.</li>
+      <li>Change N to 2²⁰ (remove the printf) and repeat. Predict how often ATOMIC 0 is wrong.</li>
+      <li>Set N = 1000 and run the original under <code>compute-sanitizer --tool racecheck</code> and <code>--tool synccheck</code>.</li>
+      <li>Replace the serial block sum with the tree reduction from 13.6 and verify it for N = 1000 and N = 2²⁰.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+<pre><code>__global__ void dotKernel(int *d_res, const int *d_a, const int *d_b, int n) {
+  __shared__ int s[TPB];
+  int idx = blockIdx.x * blockDim.x + threadIdx.x, tid = threadIdx.x;
+  s[tid] = (idx &lt; n) ? d_a[idx] * d_b[idx] : 0;
+  __syncthreads();
+  for (int stride = blockDim.x / 2; stride &gt; 0; stride &gt;&gt;= 1) {
+    if (tid &lt; stride) s[tid] += s[tid + stride];
+    __syncthreads();
+  }
+  if (tid == 0) atomicAdd(d_res, s[0]);
+}</code></pre>
+      <p><strong>Step 1:</strong> ATOMIC 1 always gives 1024. ATOMIC 0 usually gives 1024 with only 16 blocks, and sometimes less.</p>
+      <p><strong>Step 2:</strong> with 16,384 blocks, ATOMIC 0 is wrong essentially every run, often by a large margin (you might see a few thousand instead of 1,048,576). ATOMIC 1 is always 1,048,576.</p>
+      <p><strong>Step 3:</strong> synccheck reports the barrier divergence in the last block; the result is also wrong, because the 24 unwritten entries are summed.</p>
+      <p><strong>Step 4:</strong> correct for both sizes (1000 and 1,048,576).</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c13"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 14 ================= -->
+<section class="mod" id="m14" data-title="Tiling: conv & matmul">
+  <div class="eyebrow">Module 14 · Lecture 3 (Tiling) · Book Chapter 5 · Assignment 2 Q1–Q2</div>
+  <h2>Tiling: convolution and matrix multiplication</h2>
+  <p class="goal">Load data into shared memory once and reuse it many times. This is the most important optimization in the course.</p>
+  <ul class="goals"><li>After this module you can: write basic and tiled 1D convolution, derive global read counts for both, use constant memory for a mask, explain the tiled matrix multiply phase by phase, derive its reduction in global reads, handle sizes that aren't multiples of the tile, and reason about choosing a tile size.</li></ul>
+
+  <h3>14.1 1D convolution</h3>
+  <p>Convolution slides a small <strong>mask</strong> M of width MW = 2r + 1 over an input array and computes a weighted sum at every position:</p>
+  <div class="formula">P[i] = Σ_{j=0}^{MW−1}  M[j] · N[i − r + j]        (N[k] = 0 when k is outside the array)</div>
+  <p>It's used for signal and audio filtering, image blurring and edge detection, CNN layers, and stencils in simulations such as the heat equation (whose mask is [α, 1−2α, α], Module 9).</p>
+  <p><strong>Basic kernel:</strong> one thread per output, reading MW inputs straight from global memory:</p>
+<pre><code>#define R 1                                     // example: mask width 3 (the assignment uses 5)
+__constant__ float d_M[2 * R + 1];              // mask in constant memory
+__global__ void conv_basic(const float *N, float *P, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i &gt;= n) return;                           // fine here: no __syncthreads
+  float sum = 0.0f;
+  for (int j = -R; j &lt;= R; j++) {
+    int k = i + j;
+    if (k &gt;= 0 &amp;&amp; k &lt; n) sum += d_M[j + R] * N[k];   // out-of-range inputs count as 0
+  }
+  P[i] = sum;
+}
+// host: cudaMemcpyToSymbol(d_M, h_M, sizeof(h_M));</code></pre>
+  <p><strong>Why constant memory for the mask?</strong> Every thread reads the same <code>d_M[j]</code> at the same time. Constant memory has a cache that broadcasts one value to the whole warp, so the mask costs almost no global traffic. Mention this in your report: the mask's reads are separate from the input's.</p>
+
+  <h3>14.2 Tiled 1D convolution</h3>
+  <p>Each input value is needed by MW different outputs. In the tiled kernel, a block loads a tile of <code>TILE</code> inputs plus r halo cells on each side into shared memory once, then each thread computes from shared memory. This is Module 13's halo pattern with the radius as a parameter:</p>
+<pre><code>__global__ void conv_tiled(const float *N, float *P, int n) {
+  extern __shared__ float s[];                      // TILE + 2R floats
+  int i = blockIdx.x * blockDim.x + threadIdx.x, t = threadIdx.x;
+  s[t + R] = (i &lt; n) ? N[i] : 0.0f;
+  if (t &lt; R) {                                       // left and right halos
+    int L = i - R, Rt = i + blockDim.x;
+    s[t]                  = (L &gt;= 0) ? N[L]  : 0.0f;
+    s[t + blockDim.x + R] = (Rt &lt; n) ? N[Rt] : 0.0f;
+  }
+  __syncthreads();
+  if (i &lt; n) {
+    float sum = 0.0f;
+    for (int j = 0; j &lt; 2 * R + 1; j++) sum += d_M[j] * s[t + j];
+    P[i] = sum;
+  }
+}
+// launch: conv_tiled&lt;&lt;&lt;(n+TILE-1)/TILE, TILE, (TILE + 2*R)*sizeof(float)&gt;&gt;&gt;(d_N, d_P, n);</code></pre>
+
+  <h4>Counting global memory accesses</h4>
+  <p>Ignoring the mask (constant cache) and the edges of the whole array:</p>
+  <div class="tbl"><table>
+    <tr><th></th><th>Global reads of N</th><th>Global writes of P</th></tr>
+    <tr><td>Basic</td><td>MW per output → about <strong>MW · n</strong></td><td>n</td></tr>
+    <tr><td>Tiled</td><td>(TILE + 2r) per block × ⌈n/TILE⌉ blocks → about <strong>n · (1 + 2r/TILE)</strong></td><td>n</td></tr>
+  </table></div>
+  <p>The reduction factor is about MW / (1 + 2r/TILE). It approaches MW for large tiles, because the halo overhead 2r/TILE shrinks. At the array ends, inputs outside the array aren't read at all (they're 0), so exact counts are slightly lower. A careful report states whether it counts those.</p>
+  <div class="key"><strong>Real speed-ups are smaller than the count suggests.</strong> In the basic kernel, neighbouring threads read overlapping inputs, and L1/L2 caches catch many of those repeats. Tiling guarantees the reuse rather than hoping for it. On a T4 a 1D convolution is often only modestly faster tiled, and for small n launch overhead dominates both. Saying this with profiler numbers to back it is what makes an A-level answer.</div>
+
+  <h4>Choosing the tile size</h4>
+  <ul>
+    <li>TILE = threads per block here, so it must be ≤ 1024 and should be a multiple of 32.</li>
+    <li>Bigger tiles mean less halo overhead (2r/TILE) but fewer blocks. For n = 1024 and TILE = 1024 there's only <strong>one block</strong>, using 1 of 40 SMs.</li>
+    <li>Shared memory per block is (TILE + 2r) × 4 bytes, tiny for 1D, so it doesn't limit occupancy here. That matters for the assignment's question about whether more shared memory helps.</li>
+    <li>Decide by experiment: sweep TILE ∈ {32, 64, 128, 256, 512, 1024}, time each with events, and explain the best one with occupancy and block count.</li>
+  </ul>
+
+  <h3>14.3 Tiled matrix multiplication</h3>
+  <p>Naive matmul (Module 9) reads every element of A P times and every element of B M times from global memory. Tiling exploits that a <em>block</em> of threads computing a T × T tile of C needs the same rows of A and columns of B.</p>
+  <div class="svgbox">
+  <svg viewBox="0 0 560 230" role="img" aria-label="Tiled matmul: the block computing a C tile walks along a row of A tiles and a column of B tiles">
+    <rect x="200" y="10" width="160" height="80" fill="var(--code-bg)" stroke="var(--line)"/><text x="365" y="30">B</text>
+    <rect x="240" y="10" width="40" height="80" fill="var(--accent-soft)" stroke="var(--accent)"/>
+    <rect x="240" y="30" width="40" height="20" fill="var(--accent)"/><text x="288" y="44" class="mut">phase p</text>
+    <rect x="20" y="110" width="160" height="100" fill="var(--code-bg)" stroke="var(--line)"/><text x="4" y="125">A</text>
+    <rect x="20" y="150" width="160" height="20" fill="var(--accent-soft)" stroke="var(--accent)"/>
+    <rect x="60" y="150" width="40" height="20" fill="var(--accent)"/><text x="60" y="226" class="mut">phase p</text>
+    <rect x="200" y="110" width="160" height="100" fill="var(--code-bg)" stroke="var(--line)"/><text x="365" y="125">C</text>
+    <rect x="240" y="150" width="40" height="20" fill="var(--warn)"/><text x="290" y="165">tile computed by one block</text>
+    <text x="380" y="200" class="mut">each phase: load one A tile +</text><text x="380" y="214" class="mut">one B tile, then T multiply-adds</text>
+  </svg></div>
+  <p>The kernel runs in <strong>phases</strong>. In phase p, each thread of the block loads <em>one</em> element of the A tile and <em>one</em> of the B tile into shared memory, the block synchronizes, every thread does T multiply-adds from shared memory, and the block synchronizes again before the tiles are overwritten:</p>
+<pre><code>#define T 16                                        // square tile, fixed at compile time
+__global__ void matmul_tiled(const float *A, const float *B, float *C, int M, int N, int P) {
+  __shared__ float sA[T][T], sB[T][T];
+  int tx = threadIdx.x, ty = threadIdx.y;
+  int col = blockIdx.x * T + tx, row = blockIdx.y * T + ty;
+  float sum = 0.0f;
+  for (int p = 0; p &lt; (N + T - 1) / T; p++) {       // phases along the shared dimension
+    int aCol = p * T + tx, bRow = p * T + ty;
+    sA[ty][tx] = (row &lt; M &amp;&amp; aCol &lt; N) ? A[row * N + aCol] : 0.0f;   // 0-padding at edges
+    sB[ty][tx] = (bRow &lt; N &amp;&amp; col &lt; P) ? B[bRow * P + col] : 0.0f;
+    __syncthreads();                                // tiles fully loaded
+    for (int k = 0; k &lt; T; k++) sum += sA[ty][k] * sB[k][tx];
+    __syncthreads();                                // everyone done before overwrite
+  }
+  if (row &lt; M &amp;&amp; col &lt; P) C[row * P + col] = sum;
+}
+dim3 block(T, T), grid((P + T - 1) / T, (M + T - 1) / T);</code></pre>
+  <p>Points to understand line by line:</p>
+  <ul>
+    <li><strong>Coalesced loads (corner turning).</strong> Both loads index the contiguous dimension with <code>tx</code>: <code>A[row*N + p*T + tx]</code> and <code>B[(p*T+ty)*P + col]</code>. Consecutive threads read consecutive addresses. The lecture calls this corner turning: the <em>load</em> runs along rows even though the <em>computation</em> uses a column of B.</li>
+    <li><strong>Padding with zeros</strong> handles M, N, P that aren't multiples of T. A 0 contributes nothing to the sum. There's no early return, because of the barriers.</li>
+    <li><strong>Two barriers per phase:</strong> the first so no one reads a tile before it's complete, the second so no one overwrites it while others still read.</li>
+    <li><strong>Shared-memory reads</strong>: <code>sA[ty][k]</code> is the same for all threads in a row (broadcast); <code>sB[k][tx]</code> spans consecutive banks. No conflicts.</li>
+  </ul>
+
+  <h4>Counting global reads</h4>
+  <p>Each element of C still needs N products, but each thread now loads only one A and one B element per phase, and there are N/T phases. So each thread loads 2N/T elements instead of 2N:</p>
+  <div class="formula">naive: 2·M·N·P reads        tiled (T×T): 2·M·N·P / T reads        → T times fewer</div>
+  <p>With T = 16 that's 16× fewer global reads, and the arithmetic intensity grows by the same factor (Module 4). For non-square tiles, work out separately how many times each A and B element is loaded: each A element is loaded once per block <em>column</em> of the grid, each B element once per block <em>row</em>. That reasoning gives you the formula for a tileX × tileY kernel.</p>
+
+  <h4>Tile size: the trade-offs</h4>
+  <div class="tbl"><table>
+    <tr><th>T</th><th>Threads / block</th><th>Shared mem / block (float)</th><th>Read reduction</th><th>T4 notes</th></tr>
+    <tr><td class="num">8</td><td class="num">64</td><td class="num">512 B</td><td class="num">8×</td><td>2 warps/block; the 16-block-per-SM limit caps occupancy at 32 warps → OK, but more barriers per useful work</td></tr>
+    <tr><td class="num">16</td><td class="num">256</td><td class="num">2 KB</td><td class="num">16×</td><td>Usually a good balance</td></tr>
+    <tr><td class="num">32</td><td class="num">1024</td><td class="num">8 KB</td><td class="num">32×</td><td>One block fills an SM (32 warps); each barrier stalls all 1024 threads; little scheduling flexibility</td></tr>
+  </table></div>
+  <p>Bigger tiles aren't automatically faster. Once memory traffic is low enough, the limit moves to shared-memory bandwidth, barrier stalls and occupancy, and the best T has to be measured.</p>
+  <p><strong>Runtime tile sizes:</strong> the assignment's <code>tiled_gemm()</code> takes tileX and tileY as parameters. A static <code>__shared__ float sA[T][T]</code> needs T at compile time, so you'll need dynamic shared memory: one <code>extern</code> buffer split into two arrays, indexed by hand, with the size passed at launch (Module 13.2). Think carefully about which dimension of the A tile and of the B tile each of tileX and tileY controls, and whether the shared dimension's tile width must match between them.</p>
+
+  <div class="worked">
+    <div class="lbl">Worked example: counting reads and choosing T</div>
+    <p><strong>Problem.</strong> Square matrices with M = N = P = 2048, float. Compare global reads and traffic for naive matmul and tiled matmul with T = 32. Then estimate the best possible kernel times on a T4.</p>
+    <ol class="steps">
+      <li>Naive reads: 2 · 2048³ = 1.72×10¹⁰ elements = 68.7 GB of traffic.</li>
+      <li>Tiled reads: 1.72×10¹⁰ / 32 = 5.4×10⁸ elements = 2.1 GB of traffic.</li>
+      <li>FLOPs for both: 2 · 2048³ = 1.72×10¹⁰.</li>
+      <li>Naive bound: max(1.72×10¹⁰ / 8.1×10¹², 68.7 GB / 320 GB/s) = max(2.1 ms, 215 ms) = 215 ms if every read went to DRAM. Caches catch much of this, so measured times are well below 215 ms, but it's clearly memory-limited.</li>
+      <li>Tiled bound: max(2.1 ms, 2.1 GB / 320 GB/s = 6.7 ms) = 6.7 ms. Moving closer to the compute bound is the whole point of tiling. Real tiled kernels on a T4 typically take tens of ms here, and cuBLAS approaches the ~2 ms compute bound.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Name three application domains of convolution.</summary><div class="ans"><p>For example: image processing (blurring, edge detection), audio and signal filtering, convolutional neural networks, and stencil computations in physics simulations. Give your own examples and a sentence on each in the report.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does tiled matmul need two <code>__syncthreads()</code> per phase?</summary><div class="ans"><p>The first makes sure both tiles are fully loaded before anyone computes. The second makes sure everyone has finished computing with the current tiles before the next phase overwrites them.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is the mask stored in constant memory, and does it count as global reads?</summary><div class="ans"><p>All threads of a warp read the same mask element at the same time, and the constant cache broadcasts it. After the first access it's served from cache, so it adds almost no DRAM traffic. A precise count should say whether mask reads are included and why.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Mask width 3 (r = 1), n = 1,048,576, TILE = 256. Count global reads of N for the basic and tiled kernels.</summary><div class="ans"><p>Basic: about 3n = 3,145,728 (minus 2 at the array ends). Tiled: 4096 blocks × (256 + 2) = 1,056,768 (minus the 2 out-of-range halos, if you skip loading them). That's about a 3× reduction. Do the same derivation for mask width 5 in your report.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Tiled matmul with T = 16 on A (100 × 50) and B (50 × 70). How many phases, blocks and threads? How many threads write to C?</summary><div class="ans"><p>Phases: ⌈50/16⌉ = 4 (the last one is partly zero-padded). Grid: (⌈70/16⌉, ⌈100/16⌉) = (5, 7) = 35 blocks × 256 = 8,960 threads. Only 100 × 70 = 7,000 write to C; the rest only help load tiles (with zeros where out of range) and pass the barriers.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Why might T = 32 be slower than T = 16 on a T4, even though it reads global memory half as often?</summary><div class="ans"><p>A 1024-thread block fills the SM alone, so when its warps wait at a barrier nothing else can run. With T = 16, 4 blocks share the SM and one block's barrier stall is covered by others. Also, once DRAM traffic is low, shared-memory bandwidth and instruction overhead dominate, and halving DRAM reads no longer helps much.</p></div></details>
+
+  <div class="lab"><h4>Lab: tiled matmul, square case</h4>
+    <ol>
+      <li>Implement <code>matmul_tiled</code> exactly as above with T = 16 and a CPU reference (use double accumulation on the CPU).</li>
+      <li>Test correctness on 64 × 64, 100 × 50 × 70 and 1024 × 1024 × 1024, with a relative tolerance of about 1e-4.</li>
+      <li>Time the naive and tiled kernels at 1024³ with CUDA events. Predict the speed-up first.</li>
+      <li>Profile both with <code>ncu --section SpeedOfLight --section MemoryWorkloadAnalysis</code>. What happens to DRAM traffic? Did occupancy change?</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p>The kernel above is the solution. For the CPU reference, accumulate in <code>double</code> and compare with <code>fabs(gpu-ref) &lt;= 1e-4 * fabs(ref)</code>.</p>
+      <p><strong>Expected at 1024³ on a T4:</strong> naive about 8–15 ms, tiled T = 16 about 3–6 ms, so roughly a 2–3× speed-up, not 16×. The 16× reduction in reads doesn't translate directly because the naive kernel was already helped by the L1/L2 caches, and the tiled kernel becomes limited by shared-memory loads and barriers. ncu shows DRAM bytes dropping sharply for tiled, while L1/shared throughput becomes the top unit in SpeedOfLight. Occupancy is similar (both use 256-thread blocks; tiled adds 2 KB shared memory per block, which doesn't limit a T4).</p>
+      <p>The assignment generalizes this to runtime tileX/tileY and rectangular sizes such as 513 × 8192 × 1023. Those odd sizes test your zero-padding.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c14"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 15 ================= -->
+<section class="mod" id="m15" data-title="Porting a CPU hotspot">
+  <div class="eyebrow">Module 15 · Assignment 2 Q3 (llama2.c) and Bonus (iPIC3D mover) · Profiling tutorials</div>
+  <h2>Porting a CPU hotspot to the GPU</h2>
+  <p class="goal">The workflow you'll use in Q3, the bonus and your llm.c project: measure, port one function correctly, find the new bottleneck, fix it, measure again.</p>
+  <ul class="goals"><li>After this module you can: find and count a hotspot, port a matrix-vector product with a coalesced design, verify a port inside a larger program, explain why per-call allocation and copying kill performance, choose an optimization from an nsys profile, and plan the port of a particle mover (structs, deep copies, validation).</li></ul>
+
+  <h3>15.1 The workflow</h3>
+  <ol>
+    <li><strong>Measure the baseline</strong> with the program's own metric (tokens/s, total simulation time) and a profiler.</li>
+    <li><strong>Find and count the hotspot.</strong> Add a static counter to the function or use <code>perf</code>/<code>gprof</code>. Knowing the call count and per-call size tells you whether launch overhead will matter.</li>
+    <li><strong>Port naively but correctly</strong>, with data allocated and copied inside the function. It's slow, but it isolates correctness.</li>
+    <li><strong>Verify</strong> against the CPU version.</li>
+    <li><strong>Profile with nsys</strong>: is time in kernels, in <code>cudaMemcpy</code>, in <code>cudaMalloc</code>, or in gaps between launches?</li>
+    <li><strong>Fix the biggest cost</strong>, one change at a time, and re-profile to show which metrics changed.</li>
+  </ol>
+
+  <h3>15.2 Matrix-vector products in an LLM</h3>
+  <p>In llama2.c, <code>matmul(xout, x, w, n, d)</code> computes <code>xout = W · x</code>, where W is d × n (row-major) and x has n entries. Generating each token calls it several times per transformer layer (the attention projections and the feed-forward layers) plus once for the output classifier. Count it with a static counter, don't guess. Unlike matrix-matrix multiply, a matrix-<em>vector</em> product does just 2 FLOPs per weight element loaded, so it's <strong>memory-bound</strong> (AI ≈ 0.5 FLOP/byte). Its speed is set by how fast you can stream W.</p>
+  <h4>Design 1: one thread per output row</h4>
+<pre><code>__global__ void matvec_row(const float *W, const float *x, float *y, int n, int d) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;          // output row
+  if (i &gt;= d) return;
+  float s = 0.0f;
+  for (int j = 0; j &lt; n; j++) s += W[(size_t)i * n + j] * x[j];
+  y[i] = s;
+}</code></pre>
+  <p>Simple and correct, but check the access to W with Module 12: at each step j, consecutive threads read <code>W[i*n + j]</code>, which are <strong>n floats apart</strong>, so the access is uncoalesced. (x[j] is a broadcast, which is fine.) For d = 288 rows there are also only 288 threads, which won't fill a GPU.</p>
+  <h4>Design 2: one warp per output row</h4>
+<pre><code>__global__ void matvec_warp(const float *W, const float *x, float *y, int n, int d) {
+  int warp = (blockIdx.x * blockDim.x + threadIdx.x) / 32, lane = threadIdx.x % 32;
+  if (warp &gt;= d) return;                                  // whole warp exits together
+  float s = 0.0f;
+  for (int j = lane; j &lt; n; j += 32)                      // lanes read consecutive W entries
+    s += W[(size_t)warp * n + j] * x[j];
+  for (int off = 16; off &gt; 0; off /= 2)                   // warp reduction in registers
+    s += __shfl_down_sync(0xffffffff, s, off);
+  if (lane == 0) y[warp] = s;
+}
+// launch: d warps → blocks = (d * 32 + 255) / 256, 256 threads</code></pre>
+  <p>Now the 32 lanes read 32 consecutive floats of a row (coalesced), and there are 32× more threads. <code>__shfl_down_sync</code> lets threads of a warp read each other's registers, so the warp sums its 32 partial results in 5 steps with no shared memory and no barrier. Comparing designs 1 and 2 with ncu (sectors per request, DRAM throughput) makes a strong Module 12 story for your report.</p>
+  <p>A third option is the library: <code>cublasSgemv</code>. cuBLAS assumes column-major storage, so a row-major W (d × n) looks like a column-major n × d matrix, and you pass <code>CUBLAS_OP_T</code>. Library calls are a legitimate optimization and a project topic.</p>
+
+  <h3>15.3 Why the naive port is slow</h3>
+  <p>A naive port does <code>cudaMalloc</code> → copy W → copy x → kernel → copy y back → <code>cudaFree</code> inside every call. Per call:</p>
+  <ul>
+    <li>W is <strong>the same every token</strong> (model weights), yet it's re-copied each call. Copying d·n·4 bytes over PCIe takes longer than the GPU needs to read it.</li>
+    <li><code>cudaMalloc</code>/<code>cudaFree</code> are slow API calls (tens to hundreds of µs) that also synchronize.</li>
+    <li>Each call is small, so fixed costs (launch ~5 µs, copy latency ~10 µs) dominate.</li>
+  </ul>
+  <p>So the GPU version can easily be <em>slower</em> than the CPU at first. That's expected and is the point of the exercise. nsys's <code>cuda_api_sum</code> and <code>cuda_gpu_mem_time_sum</code> tables show exactly which of these costs dominates.</p>
+  <h4>Optimizations to choose from (the assignment asks for one)</h4>
+  <div class="tbl"><table>
+    <tr><th>Bottleneck in nsys</th><th>Fix</th><th>What should change in the profile</th></tr>
+    <tr><td><code>cudaMalloc</code>/<code>cudaFree</code> calls</td><td>Allocate device buffers once (at start-up) and reuse them</td><td>Call count drops from thousands to a handful</td></tr>
+    <tr><td>H2D copies of weights</td><td>Copy all weights to the GPU once at load time; pass device pointers to matmul</td><td>H2D bytes per token drop from megabytes to just x</td></tr>
+    <tr><td>Remaining small copies</td><td>Pinned host memory (<code>cudaMallocHost</code>) for x and xout</td><td>Higher bandwidth and lower latency per copy</td></tr>
+    <tr><td>Kernel time</td><td>Coalesced warp-per-row kernel, or cuBLAS</td><td>Lower average kernel duration in <code>cuda_gpu_kern_sum</code></td></tr>
+  </table></div>
+  <h4>Verifying inside a larger program</h4>
+  <ul>
+    <li>Temporarily run <em>both</em> versions each call and compare <code>xout</code> elementwise with a relative tolerance (reductions sum in a different order, Module 7).</li>
+    <li>Run with temperature 0 (greedy sampling; llama2.c's <code>-t 0</code>) on CPU and GPU builds. The generated text should be identical, or diverge only after many tokens because of float rounding. Explain this in the report.</li>
+  </ul>
+
+  <h3>15.4 Bonus preparation: porting a particle mover</h3>
+  <p>The iPIC3D-mini bonus asks you to port <code>mover_PC()</code>: for every particle, interpolate the electromagnetic field at its position and push it for several sub-cycles. The structure suits a GPU well: <strong>particles are independent</strong>, so use one thread per particle, keeping its whole sub-cycling loop inside the thread. What makes it harder than vector add:</p>
+  <ul>
+    <li><strong>Structs with pointers.</strong> Particle and field data live in structs containing pointers to arrays. Copying the struct to the GPU copies only the <em>host</em> pointers, which are invalid there. You need a <strong>deep copy</strong>: <code>cudaMalloc</code> each array, copy its contents, and pass device pointers (in a device-side struct or as kernel arguments).</li>
+    <li><strong>Multi-dimensional arrays.</strong> Fields may be stored as <code>double***</code> on the CPU. On the GPU, use the flat contiguous array behind them (check the code for a "flat" version) and compute the index by hand.</li>
+    <li><strong>Data layout.</strong> Separate arrays per component (x[], y[], …), a structure of arrays, coalesce. An array of structs doesn't (Module 12 exercise).</li>
+    <li><strong>Double precision.</strong> On a T4, FP64 runs at 1/32 of FP32, so don't expect a huge speed-up there; the cluster's H100 is much better at FP64. Mention which GPU you used and why it matters.</li>
+    <li><strong>Validation.</strong> Run CPU and GPU versions on the same input, compare the output files (positions, velocities, or the code's diagnostic outputs) with a tolerance, and report the maximum relative difference.</li>
+    <li><strong>Timing.</strong> Report the mover's time with and without allocation and transfers, since the bonus allows them inside <code>mover_PC_gpu()</code>. The difference shows how much a fuller port, keeping data resident, would gain.</li>
+  </ul>
+
+  <div class="worked">
+    <div class="lbl">Worked example: is one matvec worth a GPU?</div>
+    <p><strong>Problem.</strong> A matvec with d = 768, n = 768 (float). Compare the naive-port cost per call (allocate, copy W and x, kernel, copy back) with the GPU-resident version, using PCIe ≈ 12 GB/s, T4 bandwidth 320 GB/s, launch ≈ 5 µs, cudaMalloc+cudaFree ≈ 100 µs.</p>
+    <ol class="steps">
+      <li>W = 768 × 768 × 4 B = 2.36 MB. x and y = 3 KB each.</li>
+      <li>Naive: alloc/free ~100 µs + copy W 2.36 MB / 12 GB/s ≈ 197 µs + small copies ~20 µs + kernel (2.36 MB / 320 GB/s ≈ 7 µs, plus launch 5 µs) ≈ <strong>330 µs per call</strong>.</li>
+      <li>CPU: 2 × 768² = 1.2 MFLOP; one core at a few GFLOP/s takes about <strong>300–600 µs</strong>. The naive GPU port is about the same, or worse.</li>
+      <li>Resident weights, reused buffers: copy x (~10 µs) + kernel (~12 µs) + copy y (~10 µs) ≈ <strong>32 µs</strong>, about 10× faster than naive.</li>
+      <li>Next step, which the project explores: keep x and y on the GPU between layers as well, so only one token's worth of data moves per step and the GPU can run kernels back to back.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Why is a matrix-vector product memory-bound?</summary><div class="ans"><p>Each weight is used once: 2 FLOPs (multiply, add) per 4-byte load, so AI ≈ 0.5 FLOP/byte, far below the T4's ~25.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is "one thread per row" uncoalesced while "one warp per row" is coalesced?</summary><div class="ans"><p>With a thread per row, at each loop step consecutive threads read elements n floats apart, in different rows. With a warp per row, the 32 lanes read 32 consecutive floats of the same row in each step.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is it fine to <code>return</code> early in <code>matvec_warp</code> but not before a <code>__syncthreads()</code>?</summary><div class="ans"><p>The condition depends only on the warp index, so all 32 lanes exit together, and <code>__shfl_down_sync(0xffffffff, …)</code> is only called by fully active warps. There's no block-wide barrier in the kernel, so no other warp waits for the exited one.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>The nsys output of your naive port shows <code>cudaMalloc</code> 45% and <code>cudaMemcpy</code> 50% of API time, and kernels at 2% of GPU time. What do you change first, and what do you expect?</summary><div class="ans"><p>Allocate once and copy weights once. Malloc/free calls drop to a few, H2D traffic per token drops to the activation vector, and tokens/s rises a lot. The kernel's share of GPU time then grows, and that is the next thing to optimize.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>You <code>cudaMemcpy</code> a struct <code>Particles { int n; double *x, *u; }</code> to the GPU and the kernel crashes reading <code>p-&gt;x[i]</code>. Why, and what's the fix?</summary><div class="ans"><p>The copied struct still holds host addresses for <code>x</code> and <code>u</code>. Allocate device arrays, copy the contents, then build a struct with the device pointers (or pass the device pointers directly as kernel arguments).</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Your GPU text output matches the CPU for 40 tokens, then differs. Bug or not?</summary><div class="ans"><p>Probably not. A parallel reduction sums in a different order, giving tiny float differences; once two logits are nearly tied, greedy sampling can pick a different token and the texts diverge from there. Confirm by comparing matmul outputs directly: if the relative error is ~1e-6, it's rounding, not a bug.</p></div></details>
+
+  <div class="lab"><h4>Lab: three matvec designs, standalone</h4>
+    <ol>
+      <li>Write a standalone program with a CPU matvec, <code>matvec_row</code> and <code>matvec_warp</code>. Use d = n = 4096 and random data.</li>
+      <li>Check both GPU kernels against the CPU (relative tolerance 1e-4).</li>
+      <li>Time each kernel with events (weights already on the GPU). Predict first, using Module 4: what's the memory-bound minimum time?</li>
+      <li>Profile both with ncu: compare sectors per request and DRAM throughput.</li>
+      <li>Add a version that allocates and copies inside every call, and time 100 calls of each. This is the gap Q3 asks you to explain.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p>Use the two kernels above. For d = n = 4096: W = 67 MB, so the memory-bound minimum is 67 MB / 320 GB/s ≈ <strong>0.21 ms</strong>.</p>
+      <p><strong>Expected on a T4:</strong> <code>matvec_warp</code> about 0.25–0.3 ms (close to the bound, ~85% of peak bandwidth). <code>matvec_row</code> several times slower (often 1–3 ms), with ncu showing far more sectors per request and low DRAM efficiency (4,096 threads also leave the GPU under-filled).</p>
+      <p><strong>Step 5:</strong> with allocation and copies inside each call, each call takes about 6–10 ms (67 MB over PCIe dominates). That's 20–40× slower than the resident kernel, which is the same pattern you'll see in llama2.c, just at a different size.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c15"> I can explain this module without notes</label>
+</section>
+
 </main>
 </div>
 
@@ -1126,6 +1636,14 @@ for (int t = 1; t &lt;= steps; t++) {
         var t1=document.createElementNS(ns2,'text');t1.setAttribute('x',x+8);t1.setAttribute('y',44);t1.textContent='t'+t;if(hi)t1.setAttribute('fill','var(--bg)');ig.appendChild(t1);
         var t2=document.createElementNS(ns2,'text');t2.setAttribute('x',x+8);t2.setAttribute('y',64);t2.textContent='i='+i;if(hi)t2.setAttribute('fill','var(--bg)');ig.appendChild(t2);
       }}}
+  // coalescing figure (Module 12)
+  function sectors(id,y,strided){var g=document.getElementById(id);if(!g)return;var ns='http://www.w3.org/2000/svg';
+    var n=strided?16:4;for(var k=0;k<n;k++){var x=k*(strided?39:150);var w=strided?36:146;
+      var r=document.createElementNS(ns,'rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',26);r.setAttribute('rx',3);r.setAttribute('fill','var(--code-bg)');r.setAttribute('stroke','var(--line)');g.appendChild(r);
+      var f=document.createElementNS(ns,'rect');f.setAttribute('x',x);f.setAttribute('y',y);f.setAttribute('width',strided?Math.max(4,w/8):w);f.setAttribute('height',26);f.setAttribute('rx',3);f.setAttribute('fill','var(--accent)');g.appendChild(f);}
+    if(strided){var t=document.createElementNS(ns,'text');t.setAttribute('x',0);t.setAttribute('y',y+44);t.setAttribute('class','mut');t.textContent='… 32 sectors (1,024 B fetched) for 128 useful bytes';g.appendChild(t);}
+    else{var t2=document.createElementNS(ns,'text');t2.setAttribute('x',0);t2.setAttribute('y',y+44);t2.setAttribute('class','mut');t2.textContent='4 sectors (128 B fetched) for 128 useful bytes';g.appendChild(t2);}}
+  sectors('coal1',22,false); sectors('coal2',108,true);
   // table of contents + progress
   [].slice.call(document.querySelectorAll('.chk input')).forEach(function(b){
     var k='dd2360-plan-'+b.id; try{b.checked=localStorage.getItem(k)==='1'}catch(e){}
