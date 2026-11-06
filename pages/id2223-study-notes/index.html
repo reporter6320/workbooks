@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ID2223 Scalable ML/DL: Plan for an A (detailed study notes)</title>
+<style>:root{--bg:#fbfaf7;--fg:#1f2328;--muted:#6a6f76;--card:#ffffff;--line:#e3e1db;--soft:#f2f0ea;--acc:#2f5bd3;--c1:#2f6fdf;--c2:#e07a1f;--c3:#2e9e6b;--c4:#8a8f98;--ok:#1f9d55;--bad:#d64545}
+@media(prefers-color-scheme:dark){:root{--bg:#141517;--fg:#e4e4e2;--muted:#9a9ea5;--card:#1d1f22;--line:#33363b;--soft:#25282c;--acc:#7ea2ff;--c1:#6f9dff;--c2:#ff9c4a;--c3:#4fc78f;--c4:#a3a8b0}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg)}
+a{color:var(--acc)}
+.top{position:sticky;top:0;z-index:5;display:flex;gap:1rem;align-items:center;padding:.55rem 1.2rem;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);font-size:.9rem}
+.top a{text-decoration:none}
+.prog{flex:1;max-width:340px;height:8px;background:var(--soft);border-radius:9px;overflow:hidden}
+#progfill{height:100%;width:0;background:linear-gradient(90deg,var(--c1),var(--c3));transition:width .4s}
+#proglab{color:var(--muted)}
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:2.5rem;max-width:1180px;margin:0 auto;padding:0 1.2rem}
+#toc{position:sticky;top:48px;align-self:start;max-height:calc(100vh - 60px);overflow:auto;padding:1.2rem 0;font-size:.85rem}
+.tochead{font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.72rem;color:var(--muted);margin-bottom:.5rem}
+#toc a{display:block;padding:.2rem .5rem;border-radius:6px;text-decoration:none;color:var(--fg)}
+#toc a:hover{background:var(--soft)}
+#toc a.t1{font-weight:700;margin-top:.8rem}
+#toc a.t2{padding-left:1rem;color:var(--muted)}
+#toc a.done::after{content:" ✓";color:var(--ok);font-weight:700}
+main{padding:1.5rem 0 6rem;max-width:760px}
+h1{font-size:1.75rem;line-height:1.25;margin:3rem 0 1rem;padding-top:1rem;border-top:3px solid var(--fg)}
+main>h1:first-child{border:0;margin-top:1rem;font-size:2rem}
+h2{font-size:1.3rem;margin:2.6rem 0 .6rem;display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+h3{font-size:1.08rem;margin:1.8rem 0 .4rem}
+hr{border:0;border-top:1px dashed var(--line);margin:2.5rem 0}
+code{background:var(--soft);padding:.1em .35em;border-radius:4px;font-size:.9em}
+table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem;background:var(--card);border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+th,td{text-align:left;padding:.55rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--soft)}
+strong{font-weight:650}
+p:has(> strong:first-child:is(:only-child)){margin-bottom:.2rem}
+.got{margin-left:auto;font:600 .75rem system-ui;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:99px;padding:.25rem .7rem;cursor:pointer}
+.got.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+.widget{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--c1);border-radius:12px;padding:1rem 1.1rem 1.1rem;margin:1.6rem 0;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.wtitle{font-weight:700;color:var(--c1);font-size:.95rem}
+.wblurb{color:var(--muted);font-size:.9rem;margin:.3rem 0 .6rem}
+.plot{width:100%;height:auto;display:block;margin:.3rem 0}
+.plot text{font:11px system-ui;fill:var(--muted)}
+.axes line{stroke:var(--muted);stroke-width:1}.axes .grid,.grid{stroke:var(--line);stroke-width:1}
+.grid2{stroke:var(--muted);stroke-dasharray:3 4;opacity:.6}
+.axl{font-weight:600}
+.lab{font:600 13px system-ui!important;fill:var(--fg)!important}
+.l1,.l2,.l3,.lpath{fill:none;stroke-width:2.5}
+.l1{stroke:var(--c1)}.l2{stroke:var(--c4)}.l3{stroke:var(--c2)}.dash{stroke-dasharray:6 5}
+.lpath{stroke:var(--c2);stroke-width:1.5;stroke-dasharray:4 3}
+.d1{fill:var(--c1)}.d2{fill:var(--c3)}.d3{fill:var(--c2);opacity:.7}.d4{fill:var(--c2)}
+.res{stroke:var(--bad);stroke-width:1.5}
+.stopline{stroke:var(--fg);stroke-width:1.5}
+.contour{fill:none;stroke:var(--line);stroke-width:1.2}
+.frame{fill:var(--soft);stroke:none;rx:10}
+.sep{stroke:var(--c2);stroke-width:3}
+.pos{fill:var(--c1)}.neg{fill:var(--c4)}
+circle.pos+text,circle.neg+text{fill:#fff!important}
+.net .edge{stroke:var(--line);stroke-width:1.6;transition:.3s}
+.net .edge.hot{stroke:var(--c2);stroke-width:4}
+.net .edge.flow{stroke:var(--c1);stroke-dasharray:6 5;animation:flow 1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-22}}
+.net .node{fill:var(--card);stroke:var(--c1);stroke-width:2.2}
+.net .node.dead{stroke:var(--line);fill:var(--soft)}
+.net g.hot .node{stroke:var(--c2);stroke-width:3.5}
+.nl{font:600 11px system-ui!important;fill:var(--fg)!important}
+.wl{font:10.5px ui-monospace,monospace!important}
+.row{display:flex;flex-wrap:wrap;gap:.5rem 1.2rem;align-items:center;margin:.5rem 0}
+.row.two,.two{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:640px){.row.two,.two{grid-template-columns:1fr}}
+.sl{display:flex;align-items:center;gap:.5rem;font-size:.85rem;flex:1 1 220px}
+.sll{color:var(--muted);white-space:nowrap}
+.sl input{flex:1;accent-color:var(--c1)}
+.slv{font:600 .85rem ui-monospace,monospace;min-width:3.2em;text-align:right}
+.btn{font:600 .85rem system-ui;padding:.45rem .9rem;border-radius:8px;border:1px solid var(--c1);background:var(--c1);color:#fff;cursor:pointer;margin:.15rem .3rem .15rem 0}
+.btn.ghost{background:transparent;color:var(--c1)}
+.btn.on{box-shadow:0 0 0 3px color-mix(in srgb,var(--c1) 35%,transparent)}
+.row .btn:not(.on):not(.ghost){background:var(--card);color:var(--c1)}
+.out{background:var(--soft);border-radius:8px;padding:.6rem .8rem;font-size:.9rem;margin-top:.5rem;min-height:2.4em}
+.legend{display:flex;gap:1rem;font-size:.82rem;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:12px;height:4px;border-radius:2px;margin-right:.35rem;vertical-align:middle}
+.bars .bar{display:grid;grid-template-columns:3.5rem 1fr 3.5rem;gap:.6rem;align-items:center;margin:.35rem 0;font-size:.9rem}
+.track{background:var(--soft);height:20px;border-radius:5px;overflow:hidden}
+.fill{height:100%;background:var(--c1);transition:width .25s}
+.wbars{display:flex;gap:.4rem;align-items:flex-end;height:110px;padding-top:.5rem}
+.wb{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1}
+.wbf{width:100%;max-width:26px;background:var(--c1);border-radius:3px 3px 0 0;transition:height .35s}
+.wbf.zero{height:3px!important;background:var(--bad)!important}
+.wb small{font:10px ui-monospace,monospace;color:var(--muted)}
+.vbars{display:flex;gap:3px;align-items:flex-end;height:165px;border-bottom:1px solid var(--line)}
+.vb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+.vbf{width:100%;background:var(--c3);border-radius:3px 3px 0 0;transition:height .3s}
+.vbf.lo{background:var(--c1);opacity:.45}.vbf.hi{background:var(--bad)}
+.vb small{font-size:9px;color:var(--muted)}
+.hraw{fill:var(--c4);opacity:.55}.hbn{fill:var(--c1);opacity:.6}
+.clipbox{fill:color-mix(in srgb,var(--c2) 10%,transparent);stroke:var(--c2);stroke-dasharray:4 3}
+.clipcirc{fill:none;stroke:var(--c1);stroke-dasharray:4 3}
+.arrg{stroke:var(--c4);stroke-width:3}.arrv{stroke:var(--c2);stroke-width:3}.arrn{stroke:var(--c1);stroke-width:3}
+.arg{fill:var(--c4)}.arv{fill:var(--c2)}.arn{fill:var(--c1)}
+.q{border-top:1px solid var(--line);padding:.6rem 0}
+.q p{margin:.2rem 0 .4rem}
+.opt{display:flex;gap:.5rem;padding:.3rem .5rem;border-radius:6px;cursor:pointer;font-size:.92rem}
+.opt:hover{background:var(--soft)}
+.opt.right{background:color-mix(in srgb,var(--ok) 18%,transparent);font-weight:600}
+.opt.wrong{background:color-mix(in srgb,var(--bad) 18%,transparent);text-decoration:line-through}
+.muted{color:var(--muted)}
+@media(max-width:900px){.layout{grid-template-columns:1fr}#toc{position:static;max-height:none;border-bottom:1px solid var(--line)}main{max-width:none}}
+</style></head>
+<body>
+<header class="top"><a href="../../">← All workbooks</a><div class="prog"><div id="progfill"></div></div><span id="proglab"></span></header>
+<div class="layout"><nav id="toc"><div class="tochead">Contents</div></nav>
+<main id="main"><h1>ID2223 Scalable ML/DL: Plan for an A (detailed study notes)</h1>
+<h2>How the grade works</h2>
+<ul>
+<li>Labs (CNN + LLM), essay + presentation, and the final project are all <strong>Pass/Fail</strong>. You must pass them, but they don't change your letter.</li>
+<li><strong>The letter comes only from the exam:</strong> 20 multiple-choice questions, 1 point each, no aids allowed. <strong>An A needs 18 or more</strong>, so you can miss at most 2.</li>
+<li>Tasks 1–3 are meant for groups of three. You're doing them solo, so <strong>email the examiner (Amir Payberah)</strong> to get that approved and ask whether the scope is reduced.</li>
+<li>Nearly every exam question asks "why does X exist / what problem does X solve". So these notes explain the <em>why</em> behind each idea, not just the definition. If you can explain the problem a technique solves, you can eliminate the wrong options even on a question you've never seen.</li>
+</ul>
+<p><strong>How to use these notes:</strong> read one section, close the doc, and explain it out loud as if teaching a friend. Then take the quiz.</p>
+<hr />
+<h1>LECTURE 2: Regression and Classification</h1>
+<h2>2.1 What linear regression is trying to do</h2>
+<p>You have m houses. For each one you know some <strong>features</strong> (living area x₁, number of bedrooms x₂) and the <strong>target</strong> (price y). You want a function that predicts the price of a house you haven't seen.</p>
+<p>Linear regression assumes the price is roughly a <strong>weighted sum</strong> of the features:</p>
+<p>ŷ = w₁x₁ + w₂x₂ + b</p>
+<ul>
+<li><strong>w₁</strong> answers: <em>how much does the price go up for each extra m²?</em> If w₁ = 0.3 (in thousands), each m² adds 300.</li>
+<li><strong>w₂</strong> answers: <em>how much does each extra bedroom add?</em></li>
+<li><strong>b (intercept/bias)</strong> is the baseline. Without it, the prediction for a house with 0 area and 0 bedrooms would have to be exactly 0, which forces the line through the origin. Real data rarely behaves like that, so b lets the model shift up or down.</li>
+</ul>
+<p>"Learning" means finding the w and b that make ŷ close to y on the training data.</p>
+<p><strong>Example.</strong> Suppose the model is price = 0.3·area + 10·bedrooms + 50. For 100 m² with 3 bedrooms, it predicts 30 + 30 + 50 = <strong>110</strong>.</p>
+<div data-widget="linreg"></div>
+
+<h2>2.2 The bias trick (x₀ = 1)</h2>
+<p><strong>The problem:</strong> b behaves differently from the weights, because it doesn't multiply any feature. So you'd need separate formulas for b everywhere: in the prediction, in the gradient, and in the update.</p>
+<p><strong>The trick:</strong> any constant can be written as b·1. So give every example an extra "feature" x₀ that always equals 1, and rename b to w₀:</p>
+<p>ŷ = w₀·1 + w₁x₁ + w₂x₂ = <strong>wᵀx</strong>, with <strong>x</strong> = [1, x₁, x₂] and <strong>w</strong> = [w₀, w₁, w₂]</p>
+<p><strong>Check with numbers:</strong> <strong>x</strong> = [1, 100, 3] and <strong>w</strong> = [50, 0.3, 10] give 50 + 30 + 30 = 110. That's the same answer, because the model is unchanged. Only the notation is simpler.</p>
+<p><strong>What you gain:</strong> one formula for everything. The prediction is wᵀx, the gradient is ∇J(w), and the update is w ← w − η∇J(w). The bias is learned automatically as just another weight. For the whole dataset, put a column of 1s in front of the data matrix X, and every prediction at once is <strong>ŷ = Xw</strong>, which is how NumPy and GPUs compute it.</p>
+<p>The <strong>bias neuron</strong> in neural networks (Lecture 3), which "always outputs 1", is the same trick.</p>
+<p><strong>Exam (re-exam Q1):</strong> "Why x₀ = 1?" → <em>to include the bias term in the weight vector.</em> It doesn't normalize anything (a constant 1 rescales nothing). It doesn't remove the need for gradient descent. And it doesn't reduce overfitting, because the model and its number of parameters are exactly the same.</p>
+<h2>2.3 Measuring "how wrong": residuals and MSE</h2>
+<p>The <strong>residual</strong> for example i is y⁽ⁱ⁾ − ŷ⁽ⁱ⁾, how far off one prediction is. You need one number for the whole dataset, so you can compare different choices of w.</p>
+<p><strong>Why not just add up the residuals?</strong> Positive and negative errors cancel. Errors of +50 and −50 sum to 0, which looks perfect when it isn't.</p>
+<p><strong>Mean Squared Error:</strong> J(w) = (1/m) Σ (ŷ⁽ⁱ⁾ − y⁽ⁱ⁾)²</p>
+<p>Why squaring is a good choice:</p>
+<ol>
+<li><strong>It's always positive</strong>, so nothing cancels.</li>
+<li><strong>Large errors count much more.</strong> An error of 10 contributes 100, and an error of 1 contributes 1. The model is pushed hard to avoid big mistakes.</li>
+<li><strong>It's differentiable everywhere</strong> (a smooth parabola), so gradient descent can follow its slope. |error| has a sharp corner at 0, which is less convenient.</li>
+<li><strong>For linear regression it's convex</strong>, a single bowl with one bottom, so gradient descent can't get stuck in a wrong valley.</li>
+</ol>
+<p><strong>Example:</strong> three houses with errors 2, −1 and 5 give MSE = (4 + 1 + 25)/3 = 10. Notice how the single error of 5 dominates.</p>
+<p><strong>Exam (Jan Q3):</strong> "Why is MSE reasonable for linear regression?" → <em>it penalizes large errors heavily and is differentiable.</em> The wrong options: it guarantees nothing about fairness (see 2.6). It doesn't give sparse solutions (that's L1, in Lecture 4). "Prevents local minima" isn't a property of MSE in general. Convexity here comes from MSE <em>combined with a linear model</em>, and it fails with a sigmoid (see 2.8).</p>
+<h2>2.4 Gradient descent: how we actually find w</h2>
+<p><strong>Intuition (from the slides):</strong> you're lost on a mountain in thick fog, and you can only feel the slope under your feet. To reach the valley floor, you step in the steepest downhill direction and repeat.</p>
+<p>Here, the "mountain" is the cost surface J(w): each point is one choice of weights, and the height is how wrong that choice is.</p>
+<p><strong>The algorithm:</strong></p>
+<ol>
+<li>Start with random w.</li>
+<li>Compute the <strong>gradient</strong> ∇J(w), a vector of slopes, one per weight. It points <strong>uphill</strong>, toward increasing error.</li>
+<li>Step the opposite way: <strong>w ← w − η ∇J(w)</strong></li>
+<li>Repeat until the gradient is about 0 (flat ground, the minimum) or you run out of steps.</li>
+</ol>
+<p><strong>Why the gradient tells you the direction:</strong> ∂J/∂wⱼ says how much the error changes if you increase wⱼ a little. If it's positive, increasing wⱼ makes things worse, so you decrease it. The minus sign does exactly that.</p>
+<p><strong>A tiny worked example.</strong> One weight, J(w) = (w − 3)², so the minimum is at w = 3. The gradient is 2(w − 3).</p>
+<ul>
+<li>Start at w = 0 with η = 0.1. The gradient is −6, so w ← 0 − 0.1·(−6) = 0.6. Next, the gradient is −4.8, so w = 1.08, and so on. It creeps toward 3. ✔</li>
+<li>With η = 1.1, the gradient at w = 0 is −6, so w ← 0 + 6.6 = 6.6. Now you're further away than when you started (distance 3.6 instead of 3). The next step overshoots even more. <strong>Divergence.</strong> ✘</li>
+</ul>
+<div data-widget="gd"></div>
+
+<h2>2.5 Learning rate and the three variants of gradient descent</h2>
+<p><strong>Learning rate η</strong> is the step size.</p>
+<ul>
+<li><strong>Too small:</strong> each step barely moves, so you need thousands of iterations.</li>
+<li><strong>Too large:</strong> you jump over the valley onto the opposite slope, possibly higher up. The error grows instead of shrinking, and the algorithm <strong>diverges</strong> (as in the η = 1.1 example).</li>
+</ul>
+<p><strong>Exam (re-exam Q2):</strong> "What happens if the learning rate is too large?" → <em>the algorithm may diverge.</em> Not "faster and more stable" (it's unstable). Not "underfitting" (that's about model capacity). Not "the gradient becomes zero" (it usually grows).</p>
+<p><strong>How much data do you use to compute each gradient?</strong></p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Each step uses</th>
+<th>Why you'd use it</th>
+<th>Downside</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>| <strong>Batch GD</strong> | all m examples | exact gradient, smooth path to the minimum | one step needs a full pass over the data, which is far too slow for millions of examples |
+| <strong>Stochastic GD (SGD)</strong> | 1 random example | very cheap steps, starts improving immediately; the noise can help it escape shallow local minima | noisy and zig-zagging; it keeps bouncing around the minimum instead of settling |
+| <strong>Mini-batch GD</strong> | e.g. 32–256 examples | the middle ground: steadier than SGD, much cheaper than batch, and matrix operations on a batch run efficiently on GPUs | — (this is the deep-learning default) |</p>
+<p><strong>Feature scaling:</strong> if area ranges from 0 to 300 and bedrooms from 1 to 5, the cost surface becomes a long, narrow valley. Gradient descent zig-zags across the steep direction and crawls along the flat one. Scaling all features to similar ranges (for example, standardizing to mean 0 and std 1) makes the bowl round, so the steps head straight to the minimum.</p>
+<div data-widget="variants"></div>
+
+<h2>2.6 Critical view: MSE and fairness</h2>
+<p><strong>The example from the slides:</strong> a model predicts student performance to decide where resources go. It has a very low MSE, but it was trained mostly on data from well-resourced schools. It <strong>systematically underpredicts</strong> students from under-resourced schools, who then get fewer resources, which reinforces the original inequality.</p>
+<p><strong>Why this happens:</strong> MSE averages the error over <em>everyone</em>. If one group is 90% of the data, the model can do great on them and badly on the other 10%, and still have a low average. <strong>MSE minimizes total error, not fairness.</strong></p>
+<p><strong>What to ask:</strong> <em>"Better for whom?"</em> Check the error separately for each group, and consider group-weighted metrics that balance fairness and accuracy.</p>
+<p><strong>Exam:</strong> any option claiming MSE or a low loss "guarantees fairness across subgroups" is wrong.</p>
+<h2>2.7 Classification: why linear regression fails</h2>
+<p><strong>The task:</strong> predict cancer (1) or no cancer (0) from tumor size. We want a <strong>probability</strong> of class 1.</p>
+<p><strong>Why not fit a straight line?</strong> (1) A line's outputs aren't limited to [0,1], so it can predict 1.7 or −0.4, which aren't probabilities. (2) One very large tumor in the data tilts the whole line and moves the decision boundary, misclassifying other examples. The slides call this a "bad model".</p>
+<h2>2.8 Logistic regression</h2>
+<p><strong>Fix:</strong> keep the weighted sum t = wᵀx, but pass it through a function that squashes any number into (0,1):</p>
+<p><strong>Sigmoid:</strong> σ(t) = 1 / (1 + e⁻ᵗ)</p>
+<ul>
+<li>t very negative → e⁻ᵗ is huge → σ ≈ 0</li>
+<li>t = 0 → σ = 1/2</li>
+<li>t very positive → e⁻ᵗ ≈ 0 → σ ≈ 1</li>
+</ul>
+<p>So p̂ = σ(wᵀx) can be read as "the probability this is class 1". <strong>Decision rule:</strong> predict 1 if p̂ ≥ 0.5, which happens exactly when wᵀx ≥ 0. So the decision boundary is still a straight line (or plane) where wᵀx = 0. The sigmoid only turns the distance from that line into a confidence.</p>
+<p><strong>Example:</strong> with wᵀx = 2, p̂ = 1/(1 + e⁻²) ≈ 0.88, so predict cancer with 88% confidence.</p>
+<p><strong>Exam (re-exam Q3):</strong> "Correct statement about the sigmoid?" → <em>it maps real numbers to probabilities.</em> Its range is (0,1), not [−1,1] (that's tanh). It flattens for large inputs; it isn't linear there. It outputs 0.5 only at t = 0.</p>
+<div data-widget="sigmoid"></div>
+
+<h2>2.9 Why logistic regression uses log loss instead of MSE</h2>
+<p><strong>Option 1, MSE:</strong> J = (1/m)Σ(σ(wᵀx) − y)². Combined with the sigmoid, this surface is <strong>non-convex</strong>: it has bumps and several valleys. The slides' test for non-convex is that the line joining two points on the curve crosses the curve. Gradient descent can then settle in a <strong>local minimum</strong> that isn't the best solution.</p>
+<p><strong>Option 2, log loss (cross-entropy):</strong></p>
+<ul>
+<li>If y = 1: cost = −log(p̂)</li>
+<li>If y = 0: cost = −log(1 − p̂)</li>
+<li>Combined: J(w) = −(1/m) Σ [ y log p̂ + (1 − y) log(1 − p̂) ]</li>
+</ul>
+<p><strong>Why it behaves well:</strong> look at y = 1.</p>
+<ul>
+<li>p̂ = 0.99 → cost = −log 0.99 ≈ 0.01, a confident and correct prediction that's barely penalized.</li>
+<li>p̂ = 0.5 → cost ≈ 0.69.</li>
+<li>p̂ = 0.01 → cost = −log 0.01 ≈ 4.6, a confident wrong answer that's punished hard.
+As p̂ → 0, the cost → ∞. So the model is strongly pushed away from confident mistakes, and with the sigmoid this cost is <strong>convex</strong> (one global minimum).</li>
+</ul>
+<h2>2.10 Multi-class: softmax regression</h2>
+<p>With k classes (say digits 0–9), compute one score per class, sⱼ = wⱼᵀx, then turn the scores into probabilities with <strong>softmax</strong>:</p>
+<p>p̂ⱼ = e^{sⱼ} / Σₗ e^{sₗ}</p>
+<ul>
+<li>The exponential makes every value positive.</li>
+<li>Dividing by the sum makes the values <strong>add up to 1</strong>, giving a probability distribution over the classes.</li>
+<li>Bigger scores get disproportionately more probability.</li>
+</ul>
+<p><strong>Example:</strong> scores [2, 1, 0] → e² ≈ 7.39, e¹ ≈ 2.72, e⁰ = 1, with a sum of ≈ 11.1 → probabilities ≈ [0.67, 0.24, 0.09]. Predict class 1 (the first one).</p>
+<p>The loss is <strong>cross-entropy</strong>, −log(p̂ of the true class), the same idea as log loss.</p>
+<p><strong>Exam (Jan Q4):</strong> the best pairing for multi-class is <strong>softmax + cross-entropy</strong>. Sigmoid treats each output independently, so the outputs don't sum to 1 and it doesn't give a distribution over mutually exclusive classes. MSE with probability outputs gives weak gradients and the non-convexity problem described above.</p>
+<hr />
+<div data-widget="softmax"></div>
+
+<h1>LECTURE 3: Deep Feedforward Networks</h1>
+<h2>3.1 From biological neurons to the perceptron</h2>
+<ul>
+<li><strong>Biology:</strong> a neuron fires when it receives enough signals within a few milliseconds. Billions of neurons, each connected to thousands of others, form the network. ANNs borrow this idea loosely.</li>
+<li><strong>McCulloch–Pitts neuron (1943):</strong> binary inputs and a binary output. It fires if enough inputs are on, so it can compute AND, OR and NOT.</li>
+<li><strong>Linear Threshold Unit (LTU):</strong> inputs are real numbers, each with a weight. It computes z = wᵀx and outputs <strong>step(z)</strong>, which is 1 if z ≥ 0, otherwise 0. This is exactly logistic regression with the sigmoid replaced by a hard step.</li>
+<li><strong>Perceptron:</strong> a single layer of LTUs. Input neurons simply pass the inputs through, plus a <strong>bias neuron</strong> that always outputs 1 (the bias trick from 2.2).</li>
+</ul>
+<h2>3.2 How a perceptron learns</h2>
+<p><strong>Hebb's rule:</strong> "neurons that fire together wire together". If neuron A often helps trigger neuron B, strengthen the connection between them.</p>
+<p><strong>Perceptron rule:</strong> for each training example, predict, then update:</p>
+<p>w_{i,j} ← w_{i,j} + η (y_j − ŷ_j) x_i</p>
+<p>Read it case by case:</p>
+<ul>
+<li><strong>Correct prediction</strong> (y = ŷ): the bracket is 0, so nothing changes.</li>
+<li><strong>Predicted 0 but the answer was 1:</strong> the bracket is +1, so the weights on active inputs (x_i &gt; 0) increase, and next time z is larger and more likely to fire.</li>
+<li><strong>Predicted 1 but the answer was 0:</strong> the bracket is −1, so those weights decrease.</li>
+</ul>
+<p>The perceptron convergence theorem says that if the classes are linearly separable, this rule finds a separating line.</p>
+<h2>3.3 The XOR problem: why one layer isn't enough</h2>
+<p>XOR truth table: (0,0)→0, (0,1)→1, (1,0)→1, (1,1)→0.</p>
+<p>Plot those four points on a square. The 1s sit on one diagonal and the 0s on the other. <strong>No single straight line has both 1s on one side and both 0s on the other.</strong> XOR is <strong>not linearly separable</strong>.</p>
+<p>A perceptron's decision boundary is always one straight line (wᵀx = 0), so it <strong>cannot</strong> learn XOR, however long you train it. The slides show that fitting a linear model to XOR with MSE gives w₁ = w₂ = 0 and b = 0.5, which predicts <strong>0.5 for everything</strong>. The best a line can do is give up.</p>
+<p><strong>The fix: add a hidden layer.</strong> For example:</p>
+<ul>
+<li>Hidden neuron h₁ = OR(x₁, x₂)</li>
+<li>Hidden neuron h₂ = AND(x₁, x₂)</li>
+<li>Output = h₁ AND NOT h₂</li>
+</ul>
+<p>In the (h₁, h₂) space, the four points become (0,0)→0, (1,0)→1, (1,0)→1, (1,1)→0, and now one line separates them. The hidden layer <strong>re-represented the input</strong> with non-linear features, so the problem became linearly separable.</p>
+<p><strong>Exam (Jan Q5, re-exam Q4):</strong> the reason a hidden layer solves XOR / the key advantage of an MLP over a perceptron → <em>it learns non-linear feature transformations / can model non-linear decision boundaries.</em> The wrong options: depth doesn't reduce overfitting (it tends to increase it). Hidden layers don't replace bias neurons. They don't guarantee faster convergence or lower cost; MLPs are slower and costlier than a perceptron.</p>
+<div data-widget="xor"></div>
+
+<h2>3.4 The Multi-Layer Perceptron (MLP)</h2>
+<ul>
+<li><strong>Structure:</strong> an input layer, then one or more <strong>hidden layers</strong>, then an output layer. Every layer except the output has a bias neuron and is <strong>fully connected</strong> to the next. Signals only move forward (no loops), hence the name <strong>feedforward network</strong>. Many hidden layers make it a <strong>deep</strong> network.</li>
+<li>Each neuron does what logistic regression does: a weighted sum, then a non-linear activation. An MLP is many of those stacked together, where later layers build on the features earlier layers found.</li>
+</ul>
+<h2>3.5 Why the activation function matters (two exam traps)</h2>
+<p><strong>Trap 1: the step function can't be used with backprop.</strong> Training needs ∂(error)/∂(weight). The step function is flat everywhere, so its derivative is <strong>0</strong>, and at z = 0 it jumps, so the derivative is undefined. Every gradient that passes through a step neuron becomes 0, so no weight before it ever learns. That's why MLPs use smooth functions:</p>
+<ul>
+<li><strong>Sigmoid</strong>: (0,1), smooth. Its derivative is σ(1−σ), at most 0.25.</li>
+<li><strong>tanh</strong>: (−1,1), zero-centered. It often trains faster than sigmoid.</li>
+<li><strong>ReLU</strong> = max(0,z): cheap, with gradient 1 for z &gt; 0.</li>
+</ul>
+<p><strong>Exam (re-exam Q5):</strong> "Why not a step function in hidden layers with backprop?" → <em>it's not differentiable</em> (gradient zero or undefined). Being slow, producing non-binary outputs or causing overfitting are all false.</p>
+<p><strong>Trap 2: linear activations make depth useless.</strong> If every layer computes a linear function, then layer 2 applied to layer 1 is W₂(W₁x) = (W₂W₁)x = W′x, which is just <strong>one matrix</strong>. A 100-layer linear network is mathematically the same as a single-layer linear model, and it still can't solve XOR. <strong>Non-linearity is what makes depth add power.</strong></p>
+<p><strong>Exam (re-exam Q6):</strong> "All activations linear → ?" → <em>it behaves like a single linear model.</em> It isn't more expressive. It can still be trained (it's just weak). It doesn't become non-convex (non-linearity is what causes non-convexity).</p>
+<div data-widget="act"></div>
+
+<h2>3.6 Choosing the output layer and the loss</h2>
+<p>The output layer depends on what you're predicting:</p>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Output layer</th>
+<th>Why</th>
+<th>Loss</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>| Regression (a price) | linear, no activation | the output can be any real number | MSE |
+| Binary (spam or not) | 1 sigmoid neuron | the output is P(class 1) in (0,1) | binary cross-entropy |
+| Multi-class (digit 0–9) | k neurons + softmax | the outputs form a distribution that sums to 1 | cross-entropy |</p>
+<h2>3.7 Backpropagation: how an MLP learns</h2>
+<p><strong>The problem:</strong> a deep network might have millions of weights. For gradient descent you need ∂E/∂w for <strong>every</strong> weight. Nudging each weight one at a time to see what happens would take millions of forward passes per step, which is impossible.</p>
+<p><strong>The tool: the chain rule.</strong> If y = g(x) and z = f(y), then <strong>dz/dx = (dz/dy)·(dy/dx)</strong>. Effects multiply along a chain. If x affects z through two paths, add the two chains together.</p>
+<p>A weight deep in the network affects the error through a chain: weight → that neuron's input → its output → the next layer → … → output → error. So its gradient is the <strong>product of the local derivatives along that chain</strong>.</p>
+<p><strong>The algorithm (for each mini-batch):</strong></p>
+<ol>
+<li><strong>Forward pass:</strong> compute and <em>store</em> every neuron's output, layer by layer, and the final error.</li>
+<li><strong>Backward pass:</strong> start at the output, where you know how the error depends on each output. Move back one layer at a time. Each layer's gradients are computed from the gradients of the layer after it, plus its local derivatives. Intermediate results are <strong>reused</strong> instead of recomputed, so all gradients cost about as much as one extra forward pass.</li>
+<li><strong>Update:</strong> a gradient-descent step on every weight, w ← w − η ∂E/∂w.</li>
+</ol>
+<p><strong>The worked example from the slides.</strong> 2 inputs, 2 hidden neurons (h₁, h₂), 2 outputs (o₁, o₂), sigmoid everywhere, squared error E = Σ ½(target − out)². We want ∂E/∂w₅, where w₅ connects h₁ to o₁.</p>
+<p>How w₅ affects E: w₅ → net_o1 (o₁'s weighted input) → out_o1 (after the sigmoid) → E. So:</p>
+<p>∂E/∂w₅ = <strong>∂E/∂out_o1</strong> × <strong>∂out_o1/∂net_o1</strong> × <strong>∂net_o1/∂w₅</strong></p>
+<ol>
+<li><strong>∂E/∂out_o1 = (out_o1 − target_o1)</strong>: how wrong the output is. If o₁ is too high, this is positive.</li>
+<li><strong>∂out_o1/∂net_o1 = out_o1(1 − out_o1)</strong>: the sigmoid's derivative. It shows how sensitive the output is to its input. Near 0 or 1 this is tiny, which is the root of vanishing gradients (4.3).</li>
+<li><strong>∂net_o1/∂w₅ = out_h1</strong>: since net_o1 = w₅·out_h1 + w₆·out_h2 + b, the effect of w₅ is the size of the signal it carries.</li>
+</ol>
+<p>Multiply the three factors, then update w₅ ← w₅ − 0.5 × (that product), with η = 0.5.</p>
+<p><strong>In words:</strong> a weight changes in proportion to <em>how wrong the output is</em> × <em>how responsive the neuron is</em> × <em>how active its input was</em>. Make sure you can say that sentence.</p>
+<p>For a hidden-layer weight (say w₁, from input x₁ to h₁), the chain is longer. h₁ affects <strong>both</strong> outputs, so you add the contributions through o₁ and through o₂. That's the "two paths" chain rule.</p>
+<hr />
+<div data-widget="backprop"></div>
+
+<h1>LECTURE 4: Training Deep Feedforward Networks</h1>
+<p>Deep networks are powerful but hard to train. The slides name <strong>three challenges</strong>, each with its own set of fixes. Learn them as problem → cause → fixes.</p>
+<h2>4.1 Challenge 1: Overfitting</h2>
+<p><strong>The problem:</strong> a network with millions of parameters has a huge <strong>degree of freedom</strong>. It can fit almost any dataset, including the noise. It can memorize the training set, getting training error near 0 but high error on new data.</p>
+<p><strong>The general fix:</strong> reduce the effective freedom of the model. There are four techniques.</p>
+<h3>Early stopping</h3>
+<p>Plot the error over training. <strong>Training error</strong> keeps falling, because the model keeps fitting the training data more closely. <strong>Validation error</strong> falls at first (the model is learning real patterns), then reaches a minimum, then <strong>rises</strong> (it's now learning noise specific to the training set). Stop at that validation minimum and keep those weights.</p>
+<p><strong>Exam (re-exam Q7):</strong> the signal to stop → <em>validation loss starts increasing.</em> "Training loss stops decreasing" is wrong, because training loss usually keeps decreasing while you overfit. Accuracy rarely reaches 100%, and gradients vanishing is a separate issue.</p>
+<div data-widget="earlystop"></div>
+
+<h3>L1 and L2 regularization</h3>
+<p>Add a penalty for large weights: <strong>J_total = J(w) + λ·R(w)</strong>.</p>
+<p><strong>Why large weights mean overfitting:</strong> to pass exactly through every noisy training point, a model needs extreme weights that make the function swing sharply. Penalizing large weights forces a smoother, simpler function. λ sets how strong the penalty is.</p>
+<ul>
+<li><strong>L2 (ridge):</strong> R = Σ wⱼ². Its gradient is 2wⱼ, so each weight is pulled toward 0 in proportion to its size. Big weights shrink a lot, small ones a little, and they rarely reach exactly 0. The result is that all weights are small.</li>
+<li><strong>L1 (lasso):</strong> R = Σ |wⱼ|. Its gradient is ±1, a constant pull toward 0 regardless of size, so small weights get pushed <strong>all the way to 0</strong>. The result is <strong>sparse</strong> weights, which acts as automatic feature selection.</li>
+</ul>
+<div data-widget="l1l2"></div>
+
+<h3>Dropout</h3>
+<p>At each training step, each neuron is <strong>temporarily removed with probability p</strong> (e.g. 0.5). Its output is set to 0 for that step, and different neurons are dropped on every step.</p>
+<p><strong>The analogy from the slides:</strong> would a company work better if each employee tossed a coin every morning to decide whether to come in? Surprisingly, yes in one sense. No task can depend on one specific person, so knowledge gets spread across the team and nobody is a single point of failure.</p>
+<p><strong>Why it reduces overfitting:</strong></p>
+<ol>
+<li>A neuron can't rely on particular other neurons always being present, so it must learn features that are <strong>useful on their own and redundant across neurons</strong>. Memorizing through fragile co-adaptations stops working.</li>
+<li>With N neurons, there are <strong>2ᴺ</strong> possible thinned networks. Each step trains a different one, all sharing weights. The final network acts like an <strong>average of a huge ensemble</strong>, and ensembles generalize better.</li>
+</ol>
+<p><strong>At inference, dropout is turned off.</strong> All neurons are used, and outputs are scaled so the expected activation matches what the network saw during training.</p>
+<p><strong>Exam (Jan Q6):</strong> why dropout reduces overfitting → <em>it forces neurons to learn redundant, more robust representations.</em> It doesn't increase the dataset (that's data augmentation). It doesn't remove layers at inference (all neurons are used). It can't make optimization convex.</p>
+<div data-widget="dropout"></div>
+
+<h3>Data augmentation</h3>
+<p>More data is the best cure for overfitting, but real data is expensive. So <strong>create realistic variations</strong> of the existing examples, such as images that are shifted, rotated, flipped or have brightness changed. A cat rotated by 10° is still a cat. The model learns that these changes don't matter instead of memorizing exact pixels.</p>
+<h2>4.2 Challenge 2: Vanishing and exploding gradients</h2>
+<p><strong>The problem:</strong> backprop sends the error from the output back toward the input. In deep networks, the gradients often <strong>shrink as they travel down</strong> the layers. The lower layers get almost no update, so their weights stay near their random initial values and never learn useful features, even though the top layers train fine. That's <strong>vanishing gradients</strong>. The opposite case, where gradients grow layer by layer until the updates are huge and training blows up, is <strong>exploding gradients</strong> (common in RNNs).</p>
+<p><strong>Why it happens (the slides' derivation).</strong> Take a network with just <strong>one neuron per layer</strong>, with activations aⱼ = σ(zⱼ). By the chain rule, the gradient for the first layer is a product with one factor per layer:</p>
+<p>∂C/∂b₁ = σ′(z₁) · w₂ · σ′(z₂) · w₃ · σ′(z₃) · w₄ · σ′(z₄) · ∂C/∂a₄</p>
+<p>The sigmoid's derivative is <strong>at most 0.25</strong>, and with typical small weights each wⱼ·σ′(zⱼ) is <strong>below 1</strong>. Multiply many numbers below 1 and the product shrinks exponentially. For example, 0.25¹⁰ ≈ 0.000001. That's vanishing. If each factor is above 1 (large weights), the product grows exponentially instead. That's exploding.</p>
+<p>There are <strong>four fixes</strong>, each addressing a different part of that product.</p>
+<div data-widget="vanish"></div>
+
+<h3>Fix 1: Weight initialization</h3>
+<p><strong>Why initialization matters at all:</strong> the cost function of a neural net is non-convex, and where gradient descent starts strongly affects where it ends up. Two requirements:</p>
+<ol>
+<li><strong>Break symmetry.</strong> Suppose every weight starts at the same value. Then every neuron in a layer computes the same output, gets the <strong>same gradient</strong>, receives the same update, and stays identical forever. A layer of 100 neurons acts like 1. Random initialization makes the neurons different from the start, so they can learn different features.</li>
+<li><strong>Keep the signal flowing in both directions.</strong> If the weights are too small, activations shrink layer by layer on the way forward and gradients shrink on the way back (vanishing). If they're too large, both explode. You want the <strong>variance of each layer's outputs to roughly equal the variance of its inputs</strong>, and the same for gradients going backward.</li>
+</ol>
+<p>That's done by scaling the random weights based on how many inputs and outputs each layer has:</p>
+<ul>
+<li><strong>Glorot (Xavier) initialization:</strong> for sigmoid, tanh or no activation.</li>
+<li><strong>He initialization:</strong> for ReLU and its variants. ReLU zeros out about half of its inputs, so it needs roughly twice the variance to keep the signal strength.</li>
+</ul>
+<p><strong>Exam (re-exam Q8):</strong> "Why is proper initialization critical?" → <em>it avoids symmetry and ensures signal flow.</em> It doesn't affect inference speed or dataset size, and it doesn't eliminate overfitting.</p>
+<h3>Fix 2: Non-saturating activation functions</h3>
+<p>The sigmoid <strong>saturates</strong>: for large |z| it's flat, so σ′ ≈ 0. That's the tiny factor in the product above.</p>
+<p><strong>ReLU(z) = max(0, z)</strong> has derivative exactly <strong>1</strong> for z &gt; 0, so it doesn't shrink the gradient at all on that side. It's also very cheap to compute.</p>
+<p><strong>ReLU's problem, dying ReLUs:</strong> if a neuron's weighted input becomes negative for every example (for instance, after a big update), its output is always 0 and its gradient is always 0. It never updates again, so it's permanently dead. Sometimes half a network ends up dead.</p>
+<p><strong>Fixes for dying ReLUs:</strong></p>
+<ul>
+<li><strong>Leaky ReLU</strong> = max(αz, z) with a small α like 0.01. Negative inputs get a small slope instead of 0, so the gradient is never exactly 0 and dead neurons can recover.</li>
+<li><strong>RReLU:</strong> α is random during training, which also acts as a regularizer.</li>
+<li><strong>PReLU:</strong> α is <strong>learned</strong> by backprop.</li>
+<li><strong>ELU:</strong> smooth, with negative outputs that curve toward −α. The average output is closer to 0 and it often converges faster, but it's slower to compute.</li>
+</ul>
+<h3>Fix 3: Batch Normalization</h3>
+<p><strong>The problem:</strong> during training, every layer's weights keep changing, so the <strong>distribution of inputs to the next layer keeps shifting</strong>. Each layer is chasing a moving target, and if those inputs drift into the sigmoid's flat region, gradients vanish.</p>
+<p><strong>BN's fix:</strong> inside the network, before or after each layer's activation, normalize the values to a consistent range. For each mini-batch B, with m_B examples:</p>
+<ol>
+<li>Compute the batch mean μ_B and standard deviation σ_B of each feature.</li>
+<li><strong>Normalize:</strong> x̂ = (x − μ_B) / √(σ_B² + ε). Now the values have mean ≈ 0 and variance ≈ 1. The tiny ε avoids division by zero.</li>
+<li><strong>Scale and shift:</strong> z = γ ⊗ x̂ + β, where γ and β are <strong>learned</strong> parameters (⊗ is element-wise multiplication).</li>
+</ol>
+<p><strong>Why step 3?</strong> Forcing mean 0 and variance 1 might be wrong for that layer. For example, it would keep a sigmoid always in its middle linear region. With learnable γ and β, the network can choose the best scale and offset, and it can even undo the normalization completely if that helps. BN guarantees a <em>stable</em> distribution, not necessarily a standard one.</p>
+<p><strong>Benefits:</strong> much less vanishing, larger learning rates are possible, it's less sensitive to initialization, and it has a slight regularizing effect.</p>
+<p><strong>Exam (re-exam Q9):</strong> what BN primarily does → <em>keeps the inputs to each layer in a stable distribution.</em> It doesn't remove layers, reduce parameters (it adds γ and β), or "remove noise".</p>
+<div data-widget="bn"></div>
+
+<h3>Fix 4: Gradient clipping</h3>
+<p>This one is for <strong>exploding</strong> gradients: just cap them. If any gradient exceeds a threshold, clip it during backprop before the update. There are two ways, with different effects:</p>
+<ul>
+<li><strong>clipvalue = 1.0:</strong> clip <em>each component</em> to [−1, 1]. The gradient [0.9, 100] becomes [0.9, 1.0]. The <strong>direction changes</strong>: originally almost entirely along the second axis, now roughly diagonal.</li>
+<li><strong>clipnorm = 1.0:</strong> if the vector's total length exceeds 1, <em>rescale the whole vector</em> to length 1. [0.9, 100] becomes [0.009, 0.9999]. The <strong>direction is preserved</strong> and only the size shrinks.</li>
+</ul>
+<p>clipnorm is usually the safer choice, because the step still points in the true downhill direction.</p>
+<div data-widget="clip"></div>
+
+<h2>4.3 Challenge 3: Training speed (better optimizers)</h2>
+<p>Plain gradient descent, <strong>w ← w − η∇J</strong>, only looks at the slope <em>right now</em>. That causes two problems:</p>
+<ol>
+<li>On a gentle slope, the gradient is small, so it crawls.</li>
+<li>In a narrow valley, the gradient points mostly across the valley, so it zig-zags from wall to wall and makes slow progress along the valley floor.</li>
+</ol>
+<div data-widget="optim"></div>
+
+<h3>Momentum</h3>
+<p><strong>Idea:</strong> think of a ball rolling downhill. It doesn't just follow the local slope. It <strong>builds up speed</strong> and keeps moving in the direction it's been going.</p>
+<ul>
+<li>m ← β·m − η∇J   (add the current gradient into a running "velocity" vector m)</li>
+<li>w ← w + m       (move by the velocity)</li>
+<li>β is between 0 and 1 (typically 0.9). It's like friction: it controls how much past velocity carries over.</li>
+</ul>
+<p><strong>Why it's faster:</strong> on a consistent slope, the gradients point the same way every step, so m keeps growing. With β = 0.9, the effective step approaches 10× the plain step. In a zig-zag valley, the across-valley components flip sign each step and <strong>cancel out</strong>, while the along-valley components add up. It also has enough "speed" to roll over small bumps and out of shallow local minima.</p>
+<p><strong>Exam (Jan Q7):</strong> the problem momentum primarily addresses → <em>slow convergence.</em> Not vanishing gradients (that's initialization, activations and BN). Not overfitting (that's regularization). Not feature scaling.</p>
+<h3>Nesterov momentum</h3>
+<p>This is a small but useful improvement. Compute the gradient not at the current position but <strong>slightly ahead, in the direction momentum is already carrying you</strong>. It's like looking where you're about to land before deciding how to steer. It corrects overshooting earlier and usually converges a bit faster.</p>
+<h3>RMSProp</h3>
+<p><strong>A different problem:</strong> one global learning rate is a bad fit when parameters see very different gradient sizes. A parameter with consistently large gradients needs small steps or it overshoots. One with tiny gradients needs big steps or it never moves.</p>
+<p><strong>Idea:</strong> give <strong>each parameter its own adaptive learning rate</strong>.</p>
+<ul>
+<li>s ← β·s + (1 − β)·(∇J)²   (a running average of each parameter's <em>recent</em> squared gradients)</li>
+<li>w ← w − η · ∇J / √(s + ε)</li>
+</ul>
+<p>Dividing by √s means that if a parameter's gradients have been large, its step shrinks, and if they've been small, its step grows. "Recent" matters: because it's an exponentially decaying average, old gradients are forgotten. (An older method, AdaGrad, summed <em>all</em> past gradients, so its steps shrank toward zero and training stalled.)</p>
+<h3>Adam = Momentum + RMSProp</h3>
+<p>Adam keeps <strong>both</strong> running averages:</p>
+<ul>
+<li>like momentum, an average of the <strong>gradients</strong>, which gives the <em>direction</em> to move;</li>
+<li>like RMSProp, an average of the <strong>squared gradients</strong>, which sets <em>how big a step</em> each parameter takes.</li>
+</ul>
+<p>The update moves in the momentum direction, scaled per parameter by the RMSProp factor. It works well with little tuning, so it's the default choice in practice.</p>
+<h2>4.4 Summary: problem → fixes</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Root cause</th>
+<th>Fixes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>| Overfitting | too much freedom, so the model memorizes noise | early stopping, L1/L2, dropout, data augmentation |
+| Vanishing/exploding gradients | a product of many factors &lt; 1 or &gt; 1 in backprop | Glorot/He initialization, ReLU family, batch norm, gradient clipping (exploding) |
+| Slow training | plain GD only sees the current slope and uses one global learning rate | momentum, Nesterov, RMSProp, Adam |</p>
+<p><strong>Exam strategy:</strong> for any "what does X fix" question, find X's row in this table. Options naming problems from a <em>different</em> row are the distractors.</p>
+<hr />
+<h1>Past exams</h1>
+<h2>Self-check quiz</h2>
+<div data-widget="quiz"></div>
+
+<h2>Later topics on the exams (these get detailed notes once you upload those lectures)</h2>
+<ul>
+<li><strong>CNNs:</strong> an MLP flattens an image into a long vector, which discards which pixels are next to each other, and needs a huge number of weights. A convolution slides one small filter across the whole image. <strong>Shared weights</strong> mean far fewer parameters, and a feature like an edge is detected wherever it appears. Output size = (n − f + 2p)/s + 1, so a 5×5 filter on a 32×32 image gives 28×28.</li>
+<li><strong>RNNs → attention → Transformers:</strong> an RNN squeezes the whole past into one hidden state, so distant information fades. Attention lets each step look directly at any earlier state. Transformers drop recurrence entirely, so all positions are processed <strong>in parallel</strong>. In self-attention, Q, K and V all come from the same sequence. Multiple heads let the model attend to several kinds of relationships at once.</li>
+<li><strong>Feature stores and pipelines:</strong> compute features once and reuse them identically in training and inference, which avoids training/serving skew. Time travel retrieves feature values <em>as they were</em> at a past time, so training data is reproducible. A feature view joins and selects features. Precomputed features cost storage but are fast. On-demand features save storage but add latency. Use event time, not processing time, so late and out-of-order events land in the correct window.</li>
+<li><strong>Testing and monitoring:</strong> feature unit tests require feature logic written as independent, testable functions. Contract tests check schema, ranges and meaning. Lineage traces data → features → model → deployment. Guardrails filter harmful or invalid outputs at runtime.</li>
+<li><strong>Drift:</strong> feature (covariate) drift is a change in the input distribution while the task stays the same, so <strong>retrain</strong> on fresh data. Concept drift is a change in the X→y relationship itself, so <strong>redesign</strong>.</li>
+<li><strong>Hyperparameter tuning:</strong> successive halving (SHA) gives many configurations a small budget, then keeps the best half and doubles their budget. But you must choose many configurations with little budget each, or few with more. HyperBand runs SHA with <strong>several such trade-offs</strong> and covers both.</li>
+<li><strong>Distributed training:</strong> a parameter server is a central node that every worker sends gradients to, which makes it a bottleneck. AllReduce spreads the communication among the workers themselves. Data parallelism copies the model to each device, each with different data. <strong>Model parallelism</strong> splits the model itself across devices, which you need when it doesn't fit on one.</li>
+</ul>
+<h2>Study routine</h2>
+<ol>
+<li>Read one lecture section, then explain it out loud without notes. Then take the L1–L4 quiz closed-book and aim for 15 or more out of 16.</li>
+<li>For each new lecture, upload the slides and I'll add detailed notes in this format.</li>
+<li>Every week, take both past exams closed-book and aim for 19 or more out of 20.</li>
+<li>In the last 2 weeks, only do mixed practice, with extra time on the weakest block (MLOps is the biggest).</li>
+</ol></main></div>
+<script>window.EXAMS={"jan": [{"q": "Why are stateless real-time inference pipelines insufficient for many personalized or context-aware ML systems?", "o": ["They cannot scale horizontally", "They require batch inference instead of online inference", "They always recompute features incorrectly", "They cannot access historical or contextual features at low latency"]}, {"q": "Which of the following best captures the primary motivation for introducing a feature store in an ML system?", "o": ["To replace data warehouses and data lakes", "To ensure models are trained only once", "To enable consistent reuse of features across training and inference pipelines", "To improve model accuracy by tuning hyperparameters"]}, {"q": "Why is Mean Squared Error (MSE) a reasonable cost function for linear regression?", "o": ["It guarantees fairness across all subgroups", "It heavily penalizes large errors and is differentiable", "It always leads to sparse solutions", "It prevents local minima during optimization"]}, {"q": "Which pairing of output activation function and loss function is most appropriate for multi-class classi- fication?", "o": ["Sigmoid output + mean squared error", "Sigmoid output + cross-entropy loss", "Softmax output + cross-entropy loss", "Softmax output + mean squared error"]}, {"q": "What is the key reason that adding at least one hidden layer enables a neural network to solve XOR?", "o": ["Hidden layers allow the network to learn non-linear feature transformations", "Hidden layers reduce overfitting by increasing depth", "Hidden layers replace the need for bias neurons", "Hidden layers guarantee faster convergence"]}, {"q": "Why does dropout reduce overfitting in neural networks?", "o": ["It increases the effective size of the training dataset", "It forces neurons to learn redundant, more robust representations", "It reduces the number of layers during inference", "It guarantees convex optimization"]}, {"q": "What problem does momentum-based optimization primarily address?", "o": ["Vanishing gradients", "Overfitting", "Feature scaling", "Slow convergence"]}, {"q": "Why do all neurons in a convolutional layer share the same filter weights?", "o": ["To reduce overfitting by eliminating bias terms", "To reduce the number of parameters", "To ensure each neuron learns a different feature", "To make pooling layers unnecessary"]}, {"q": "Why do vanilla fully connected networks perform poorly on image data such as MNIST?", "o": ["They discard spatial structure by flattening images", "They cannot be trained with gradient descent", "They require too many convolution filters", "They cannot use non-linear activations"]}, {"q": "What fundamental limitation of RNNs motivated the introduction of attention mechanisms?", "o": ["High memory consumption", "Inability to represent probabilistic outputs", "Difficulty accessing distant past states", "Lack of labeled data"]}, {"q": "What makes self-attention different from encoder-decoder attention?", "o": ["Queries, keys, and values come from the same input sequence", "It does not use softmax", "It ignores word embeddings", "It cannot be parallelized"]}, {"q": "Why do real-time feature pipelines rely on event time rather than only processing (ingestion) time?", "o": ["Event time simplifies windowed aggregations", "Event time guarantees exactly-once delivery", "Event time allows correct handling of late and out-of-order events", "Event time reduces memory usage"]}, {"q": "What problem does HyperBand address compared to plain successive halving?", "o": ["Overfitting to the validation set", "Lack of parallelism", "Inability to handle categorical hyperparameters", "The trade-off between number of configurations and allocated budget"]}, {"q": "What is the main purpose of feature contract unit tests?", "o": ["To verify that features satisfy expected schema, ranges, and semantics", "To measure feature importance", "To compare different models", "To test inference latency"]}, {"q": "What is the key value of lineage in offline testing and debugging?", "o": ["It enables tracking how data, features, models, and deployments are connected", "It improves training speed", "It replaces version control", "It enforces fairness constraints automatically"]}, {"q": "What is the main function of guardrails in online ML/LLM systems", "o": ["To constrain harmful or invalid outputs at runtime", "To retrain models automatically", "To log features asynchronously", "To compute feature importance"]}, {"q": "When should retraining be preferred over redesigning a model?", "o": ["When infrastructure metrics degrade", "When concept drift fundamentally changes the prediction task", "When feature drift occurs but the underlying task remains stable", "When labels are unavailable"]}, {"q": "Which statement best distinguishes feature drift from concept drift?", "o": ["Feature drift concerns labels; concept drift concerns features", "Feature drift is detected offline; concept drift only online", "Feature drift reflects changes in input distributions; concept drift reflects changes in the relationship between inputs and outcomes", "Concept drift is easier to detect than feature drift"]}, {"q": "Why is AllReduce often preferred over a parameter server in large-scale clusters?", "o": ["It eliminates gradient computation", "It avoids a single central bottleneck by distributing communication", "It requires fewer GPUs", "It guarantees asynchronous updates"]}, {"q": "When is model parallelism more appropriate than data parallelism?", "o": ["When the dataset is too large to fit on disk", "When gradients must be synchronized frequently", "When latency is more important than throughput", "When the model itself is too large to fit on a single device"]}], "re": [{"q": "Why do we set x0 = 1 in linear regression?", "o": ["To normalize the dataset", "To remove the need for gradient descent", "To incorporate the bias term into the weight vector", "To reduce overfitting"]}, {"q": "What happens if the learning rate is too large?", "o": ["Convergence becomes faster and more stable", "The algorithm may diverge", "The model becomes underfitted", "The gradient becomes zero"]}, {"q": "Which statement is correct about the sigmoid function?", "o": ["It outputs values in [\u22121, 1]", "It is linear for large inputs", "It maps real numbers to probabilities", "It always outputs 0.5"]}, {"q": "What is the key advantage of a Multi-Layer Perceptron (MLP) over a single perceptron?", "o": ["Faster training", "Lower computational cost", "No need for activation functions", "Ability to model non-linear decision boundaries"]}, {"q": "Why cannot we use a step function in hidden layers when using backpropagation?", "o": ["It is not differentiable", "It is too slow", "It produces non-binary outputs", "It causes overfitting"]}, {"q": "If all activation functions in a deep network are linear, what happens?", "o": ["The network becomes more expressive", "It behaves like a single linear model", "It cannot be trained", "It becomes non-convex"]}, {"q": "What is the correct signal to stop training in early stopping?", "o": ["Validation loss starts increasing", "Training loss stops decreasing", "Accuracy reaches 100%", "Gradients vanish"]}, {"q": "Why is proper initialization critical?", "o": ["It speeds up inference", "It reduces dataset size", "It eliminates overfitting", "It avoids symmetry and ensures signal flow"]}, {"q": "What does batch normalization primarily do?", "o": ["Reduces number of layers", "Keeps inputs to each layer in a stable distribution", "Removes noise", "Reduces parameters"]}, {"q": "Why do convolutional layers reuse the same weights across positions?", "o": ["To increase model size", "To reduce learning rate", "To detect the same feature anywhere in the image", "To prevent overfitting entirely"]}, {"q": "Applying a 5 \u00d7 5 filter to a 32 \u00d7 32 image (stride=1, no padding) gives:", "o": ["32 \u00d7 32", "30 \u00d7 30", "27 \u00d7 27", "28 \u00d7 28"]}, {"q": "What is the primary computational limitation of RNNs that Transformers address?", "o": ["Memory size", "Sequential computation prevents parallelization", "Lack of embeddings", "Small datasets"]}, {"q": "Why use multiple attention heads?", "o": ["Increase sequence length", "Reduce parameters", "Replace feedforward layers", "Capture different types of relationships simultaneously"]}, {"q": "Why is time travel important in feature stores?", "o": ["Improve speed", "Reduce storage", "Enable reproducibility of training data", "Avoid normalization"]}, {"q": "What is the main role of a feature view?", "o": ["Train models", "Store raw data", "Join and select features for training/inference", "Replace feature store"]}, {"q": "What is the trade-off between precomputed features and on-demand features?", "o": ["Storage vs. latency", "Accuracy vs. speed", "Model size vs. data size", "Training vs. inference"]}, {"q": "How does HyperBand improve over SHA?", "o": ["Uses gradients", "Removes randomness", "Uses only one configuration", "Tries multiple budget\u2013configuration trade-offs"]}, {"q": "What is the key requirement for feature unit tests?", "o": ["Large datasets", "Independent, testable feature functions", "Distributed execution", "Model training"]}, {"q": "Which drift corresponds to distribution shift in input features at inference?", "o": ["Concept drift", "Label shift", "Feature (covariate) drift", "Data ingestion drift"]}, {"q": "When is model parallelism more appropriate than data parallelism?", "o": ["When the dataset is too large to fit on disk", "When the model itself is too large to fit on a single device", "When gradients must be synchronized frequently", "When latency is more important than throughput"]}]};</script>
+<script>// ---------- helpers ----------
+const NS = 'http://www.w3.org/2000/svg';
+function S(tag, attrs = {}, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function H(tag, attrs = {}, html = '', parent) { const e = document.createElement(tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (html) e.innerHTML = html; if (parent) parent.appendChild(e); return e; }
+const f = (v, d = 3) => (Math.abs(v) >= 1e5 || (Math.abs(v) < 1e-3 && v !== 0)) ? v.toExponential(2) : (+v).toFixed(d);
+const sig = z => 1 / (1 + Math.exp(-z));
+function card(root, title, blurb) {
+  root.classList.add('widget');
+  H('div', { class: 'wtitle' }, '▶ Try it: ' + title, root);
+  if (blurb) H('p', { class: 'wblurb' }, blurb, root);
+  return root;
+}
+function slider(root, label, min, max, step, val, on) {
+  const w = H('label', { class: 'sl' }, '', root);
+  H('span', { class: 'sll' }, label, w);
+  const i = H('input', { type: 'range', min, max, step, value: val }, '', w);
+  const v = H('span', { class: 'slv' }, '', w);
+  const upd = () => { v.textContent = (+i.value).toFixed(step < 0.01 ? 3 : step < 1 ? 2 : 0); on(+i.value); };
+  i.addEventListener('input', upd);
+  setTimeout(upd);
+  return i;
+}
+function btn(root, label, on, cls = '') { const b = H('button', { class: 'btn ' + cls }, label, root); b.onclick = on; return b; }
+function row(root) { return H('div', { class: 'row' }, '', root); }
+function out(root) { return H('div', { class: 'out' }, '', root); }
+function plot(root, { w = 560, h = 260, x = [0, 1], y = [0, 1], xl = '', yl = '', ticks = true }) {
+  const s = S('svg', { viewBox: `0 0 ${w} ${h}`, class: 'plot' }, root);
+  const m = { l: 44, r: 12, t: 12, b: 32 };
+  const X = v => m.l + (v - x[0]) / (x[1] - x[0]) * (w - m.l - m.r);
+  const Y = v => h - m.b - (Math.max(y[0] - (y[1] - y[0]), Math.min(y[1] + (y[1] - y[0]), v)) - y[0]) / (y[1] - y[0]) * (h - m.t - m.b);
+  const ax = S('g', { class: 'axes' }, s);
+  S('line', { x1: m.l, x2: w - m.r, y1: h - m.b, y2: h - m.b }, ax);
+  S('line', { x1: m.l, x2: m.l, y1: m.t, y2: h - m.b }, ax);
+  if (ticks) for (let k = 0; k <= 4; k++) {
+    const xv = x[0] + k * (x[1] - x[0]) / 4, yv = y[0] + k * (y[1] - y[0]) / 4;
+    S('text', { x: X(xv), y: h - m.b + 16, 'text-anchor': 'middle' }, ax).textContent = +xv.toFixed(2);
+    S('text', { x: m.l - 6, y: Y(yv) + 4, 'text-anchor': 'end' }, ax).textContent = +yv.toFixed(2);
+    S('line', { x1: m.l, x2: w - m.r, y1: Y(yv), y2: Y(yv), class: 'grid' }, ax);
+  }
+  if (xl) S('text', { x: w - m.r, y: h - 4, 'text-anchor': 'end', class: 'axl' }, ax).textContent = xl;
+  if (yl) S('text', { x: m.l + 4, y: m.t + 10, class: 'axl' }, ax).textContent = yl;
+  const clip = 'c' + Math.random().toString(36).slice(2);
+  const cp = S('clipPath', { id: clip }, s); S('rect', { x: m.l, y: m.t, width: w - m.l - m.r, height: h - m.t - m.b }, cp);
+  const layer = S('g', { 'clip-path': `url(#${clip})` }, s);
+  const top = S('g', {}, s);
+  return {
+    s, X, Y, layer, top, clear() { layer.innerHTML = ''; top.innerHTML = ''; },
+    line(pts, cls = 'l1', g = layer) { return S('path', { d: 'M' + pts.map(([a, b]) => X(a).toFixed(1) + ',' + Y(b).toFixed(1)).join('L'), class: cls }, g); },
+    fn(fx, cls = 'l1', n = 200) { const p = []; for (let i = 0; i <= n; i++) { const a = x[0] + i * (x[1] - x[0]) / n; p.push([a, fx(a)]); } return this.line(p, cls); },
+    dot(a, b, r = 5, cls = 'd1', g = layer) { return S('circle', { cx: X(a), cy: Y(b), r, class: cls }, g); },
+    text(a, b, t, cls = 'lab', g = top) { const e = S('text', { x: X(a), y: Y(b), class: cls }, g); e.textContent = t; return e; },
+    seg(a, b, c, d, cls = 'res') { return S('line', { x1: X(a), y1: Y(b), x2: X(c), y2: Y(d), class: cls }, layer); }
+  };
+}
+const W = {};
+
+// ---------- 2.1 linear regression fit ----------
+W.linreg = root => {
+  card(root, 'fit a line by hand', 'Move the sliders to fit the houses. The red segments are the residuals, and MSE is the average of their squares. Watch how one big residual dominates.');
+  const pts = [[45, 68], [60, 62], [75, 80], [90, 72], [100, 85], [120, 82], [135, 95], [150, 101], [170, 99], [190, 115], [205, 108]];
+  const p = plot(root, { x: [0, 220], y: [0, 150], xl: 'area (m²)', yl: 'price (k)' });
+  const o = out(root); let w = 0.2, b = 40;
+  const draw = () => {
+    p.clear(); let se = 0;
+    pts.forEach(([a, y]) => { const yh = w * a + b; se += (y - yh) ** 2; p.seg(a, y, a, yh); });
+    p.fn(a => w * a + b, 'l1'); pts.forEach(([a, y]) => p.dot(a, y, 4.5, 'd2'));
+    o.innerHTML = `model: ŷ = <b>${w.toFixed(2)}</b>·area + <b>${b.toFixed(0)}</b> &nbsp;→&nbsp; MSE = <b>${f(se / pts.length, 1)}</b>`;
+  };
+  const r = row(root);
+  const sw = slider(r, 'weight w', 0, 0.8, 0.01, w, v => { w = v; draw(); });
+  const sb = slider(r, 'bias b', 0, 120, 1, b, v => { b = v; draw(); });
+  btn(root, 'Show best fit (least squares)', () => {
+    const n = pts.length, mx = pts.reduce((s, q) => s + q[0], 0) / n, my = pts.reduce((s, q) => s + q[1], 0) / n;
+    const ww = pts.reduce((s, q) => s + (q[0] - mx) * (q[1] - my), 0) / pts.reduce((s, q) => s + (q[0] - mx) ** 2, 0);
+    sw.value = ww; sb.value = my - ww * mx; sw.dispatchEvent(new Event('input')); sb.dispatchEvent(new Event('input'));
+  });
+  btn(root, 'Set b = 0 (no bias)', () => { sb.value = 0; sb.dispatchEvent(new Event('input')); });
+};
+
+// ---------- 2.4 gradient descent ----------
+W.gd = root => {
+  card(root, 'gradient descent on J(w) = (w − 3)²', 'Pick a learning rate and step. Try 0.1 (smooth), 0.9 (zig-zags across the valley but converges), and 1.05 (diverges).');
+  const p = plot(root, { x: [-4, 10], y: [0, 50], xl: 'w', yl: 'J(w)' });
+  const o = out(root); let eta = 0.1, w = 0, path = [0];
+  const J = v => (v - 3) ** 2;
+  const draw = () => {
+    p.clear(); p.fn(J, 'l2');
+    p.line(path.map(v => [v, J(v)]), 'lpath');
+    path.forEach((v, i) => p.dot(v, J(v), i === path.length - 1 ? 6 : 3.5, i === path.length - 1 ? 'd1' : 'd3'));
+    const g = 2 * (w - 3);
+    const status = Math.abs(w - 3) < 1e-3 ? '✅ converged' : Math.abs(w - 3) > 50 ? '💥 diverged' : '';
+    o.innerHTML = `step ${path.length - 1}: w = <b>${f(w)}</b>, J = ${f(J(w))}, gradient = ${f(g)} → next w = w − η·g = ${f(w - eta * g)} ${status}`;
+  };
+  const step = () => { if (Math.abs(w) < 1e6) { w = w - eta * 2 * (w - 3); path.push(w); } draw(); };
+  slider(root, 'learning rate η', 0.01, 1.1, 0.01, eta, v => { eta = v; w = 0; path = [0]; draw(); });
+  const r = row(root);
+  btn(r, 'Step', step); btn(r, 'Run 10 steps', () => { for (let i = 0; i < 10; i++) step(); });
+  btn(r, 'Reset', () => { w = 0; path = [0]; draw(); }, 'ghost');
+};
+
+// ---------- 2.5 batch vs SGD ----------
+W.variants = root => {
+  card(root, 'batch vs mini-batch vs stochastic', 'Each variant takes 40 steps toward the minimum (the cross) of a 2-weight cost. Batch is smooth, SGD is noisy, and mini-batch is in between.');
+  const s = S('svg', { viewBox: '0 0 560 260', class: 'plot' }, root);
+  const cx = 420, cy = 130;
+  [30, 70, 110, 150, 190].forEach(r => S('ellipse', { cx, cy, rx: r * 1.6, ry: r * 0.6, class: 'contour' }, s));
+  S('text', { x: cx - 5, y: cy + 5, class: 'lab' }, s).textContent = '✕';
+  const cols = { batch: 'var(--c1)', 'mini-batch': 'var(--c3)', SGD: 'var(--c2)' };
+  const noise = { batch: 0, 'mini-batch': 0.35, SGD: 1.1 };
+  const lg = H('div', { class: 'legend' }, Object.entries(cols).map(([k, c]) => `<span><i style="background:${c}"></i>${k}</span>`).join(''), root);
+  const g = S('g', {}, s);
+  const run = () => {
+    g.innerHTML = '';
+    for (const k in cols) {
+      let x = 40, y = 40; const pts = [[x, y]];
+      for (let i = 0; i < 40; i++) {
+        const gx = (x - cx) / 2.56, gy = (y - cy) / 0.36;
+        x -= 0.09 * (gx + noise[k] * 60 * (Math.random() - 0.5)); y -= 0.09 * (gy * 0.25 + noise[k] * 60 * (Math.random() - 0.5));
+        pts.push([x, y]);
+      }
+      S('path', { d: 'M' + pts.map(q => q.join(',')).join('L'), fill: 'none', stroke: cols[k], 'stroke-width': 2 }, g);
+    }
+  };
+  run(); btn(root, 'Re-run with new random samples', run);
+};
+
+// ---------- 2.8 sigmoid + log loss ----------
+W.sigmoid = root => {
+  card(root, 'sigmoid and log loss', 'Slide t = wᵀx. Left: the sigmoid turns t into a probability. Right: the log-loss cost of that probability if the true label is 1 (blue) or 0 (orange). Confident wrong answers cost a lot.');
+  const r = row(root); r.classList.add('two');
+  const a = H('div', {}, '', r), b = H('div', {}, '', r);
+  const p1 = plot(a, { w: 300, h: 220, x: [-8, 8], y: [0, 1], xl: 't', yl: 'σ(t)' });
+  const p2 = plot(b, { w: 300, h: 220, x: [0, 1], y: [0, 5], xl: 'p̂', yl: 'cost' });
+  const o = out(root);
+  slider(root, 't = wᵀx', -8, 8, 0.1, 2, t => {
+    const ph = sig(t);
+    p1.clear(); p1.seg(-8, 0.5, 8, 0.5, 'grid2'); p1.fn(sig, 'l1'); p1.dot(t, ph, 6, 'd1');
+    p2.clear(); p2.fn(q => -Math.log(q), 'l1'); p2.fn(q => -Math.log(1 - q), 'l3');
+    p2.dot(ph, -Math.log(ph), 5, 'd1'); p2.dot(ph, -Math.log(1 - ph), 5, 'd4');
+    o.innerHTML = `p̂ = σ(${t.toFixed(1)}) = <b>${ph.toFixed(3)}</b> → predict <b>${ph >= 0.5 ? 'class 1' : 'class 0'}</b>. &nbsp; cost if y=1: <b>${(-Math.log(ph)).toFixed(2)}</b>, &nbsp;cost if y=0: <b>${(-Math.log(1 - ph)).toFixed(2)}</b>`;
+  });
+};
+
+// ---------- 2.10 softmax ----------
+W.softmax = root => {
+  card(root, 'softmax calculator', 'Change the class scores. Softmax makes every value positive and normalizes them to sum to 1. Small score gaps become big probability gaps.');
+  const sc = [2, 1, 0], names = ['cat', 'dog', 'bird'];
+  const bars = H('div', { class: 'bars' }, '', root);
+  const o = out(root);
+  const draw = () => {
+    const e = sc.map(Math.exp), Z = e.reduce((a, b) => a + b);
+    bars.innerHTML = sc.map((s, i) => `<div class="bar"><span>${names[i]}</span><div class="track"><div class="fill" style="width:${100 * e[i] / Z}%"></div></div><b>${(e[i] / Z).toFixed(3)}</b></div>`).join('');
+    o.innerHTML = `e^s = [${e.map(v => v.toFixed(2)).join(', ')}], sum = ${Z.toFixed(2)} → probabilities sum to <b>${(e.reduce((a, b) => a + b) / Z).toFixed(3)}</b>. Prediction: <b>${names[sc.indexOf(Math.max(...sc))]}</b>`;
+  };
+  const r = row(root);
+  names.forEach((n, i) => slider(r, 'score ' + n, -3, 6, 0.1, sc[i], v => { sc[i] = v; draw(); }));
+};
+
+// ---------- 3.3 XOR ----------
+W.xor = root => {
+  card(root, 'try to separate XOR with one line', 'Rotate and shift the line. You can never get all 4 right in the input space. Then switch to the hidden-layer view, where h₁ = OR and h₂ = AND, and one line works.');
+  const s = S('svg', { viewBox: '0 0 560 300', class: 'plot' }, root);
+  const P = [[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 0]];
+  const Hd = [[0, 0], [1, 0], [1, 0], [1, 1]];
+  const X = v => 140 + v * 280, Y = v => 250 - v * 200;
+  S('rect', { x: X(0) - 40, y: Y(1) - 30, width: 360, height: 270, class: 'frame' }, s);
+  const axl = S('text', { x: X(1) + 30, y: Y(0) + 20, class: 'axl', 'text-anchor': 'end' }, s);
+  const ayl = S('text', { x: X(0) - 34, y: Y(1) - 12, class: 'axl' }, s);
+  const ln = S('line', { class: 'sep' }, s);
+  const dots = P.map(p => S('circle', { r: 14, class: p[2] ? 'pos' : 'neg' }, s));
+  const lbl = P.map(p => { const t = S('text', { class: 'lab', 'text-anchor': 'middle' }, s); t.textContent = p[2]; return t; });
+  const o = out(root);
+  let th = 2.36, c = 0.0, hidden = false, cur = P.map(p => [p[0], p[1]]);
+  const draw = () => {
+    cur.forEach(([a, b], i) => { dots[i].setAttribute('cx', X(a)); dots[i].setAttribute('cy', Y(b)); lbl[i].setAttribute('x', X(a)); lbl[i].setAttribute('y', Y(b) + 5); });
+    const cs = Math.cos(th), sn = Math.sin(th);
+    const L = 2; const px = c * cs + 0.5, py = c * sn + 0.5;
+    ln.setAttribute('x1', X(px - L * sn)); ln.setAttribute('y1', Y(py + L * cs)); ln.setAttribute('x2', X(px + L * sn)); ln.setAttribute('y2', Y(py - L * cs));
+    let ok = 0; cur.forEach(([a, b], i) => { const side = (a - 0.5) * cs + (b - 0.5) * sn > c; if (side == !!P[i][2]) ok++; });
+    ok = Math.max(ok, 4 - ok);
+    axl.textContent = hidden ? 'h₁ = OR(x₁,x₂)' : 'x₁'; ayl.textContent = hidden ? 'h₂ = AND(x₁,x₂)' : 'x₂';
+    o.innerHTML = `${hidden ? '<b>Hidden-layer space:</b> ' : '<b>Input space:</b> '} ${ok}/4 correctly separated ${ok === 4 ? '✅ linearly separable here!' : hidden ? '' : '(the best one line can do is 3/4)'}`;
+  };
+  const anim = to => { const from = cur.map(q => q.slice()); let t = 0; const tick = () => { t = Math.min(1, t + 0.04); const e = t * t * (3 - 2 * t); cur = from.map((q, i) => [q[0] + (to[i][0] - q[0]) * e, q[1] + (to[i][1] - q[1]) * e]); draw(); if (t < 1) requestAnimationFrame(tick); }; tick(); };
+  const r = row(root);
+  const st = slider(r, 'rotate', 0, 3.14, 0.01, th, v => { th = v; draw(); });
+  const sc = slider(r, 'shift', -0.8, 0.8, 0.01, c, v => { c = v; draw(); });
+  btn(root, 'Toggle: input space ↔ hidden-layer space', () => {
+    hidden = !hidden; anim(hidden ? Hd : P.map(p => [p[0], p[1]]));
+    if (hidden) { st.value = 2.36; sc.value = -0.05; } st.dispatchEvent(new Event('input')); sc.dispatchEvent(new Event('input'));
+  });
+};
+
+// ---------- 3.5 activations ----------
+W.act = root => {
+  card(root, 'activation functions and their derivatives', 'Backprop multiplies by the derivative (dashed). Step: 0 everywhere, so no learning. Sigmoid: at most 0.25 and near 0 at the ends (saturation). ReLU: exactly 1 for z > 0.');
+  const F = {
+    step: [z => z >= 0 ? 1 : 0, z => 0], sigmoid: [sig, z => sig(z) * (1 - sig(z))], tanh: [Math.tanh, z => 1 - Math.tanh(z) ** 2],
+    ReLU: [z => Math.max(0, z), z => z > 0 ? 1 : 0], 'Leaky ReLU': [z => z > 0 ? z : 0.1 * z, z => z > 0 ? 1 : 0.1], ELU: [z => z > 0 ? z : Math.exp(z) - 1, z => z > 0 ? 1 : Math.exp(z)]
+  };
+  const p = plot(root, { x: [-5, 5], y: [-1.5, 2.5], xl: 'z' });
+  const o = out(root); const r = row(root); let cur = 'sigmoid';
+  const draw = () => { p.clear(); p.seg(-5, 0, 5, 0, 'grid2'); p.fn(F[cur][0], 'l1', 400); p.fn(F[cur][1], 'l3 dash', 400); o.innerHTML = `<b>${cur}</b>: solid = activation, dashed = derivative (the factor backprop multiplies by)`; r.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.textContent === cur)); };
+  Object.keys(F).forEach(k => btn(r, k, () => { cur = k; draw(); }));
+  draw();
+};
+
+// ---------- 3.7 backprop ----------
+W.backprop = root => {
+  card(root, 'backpropagation, step by step', 'A 2-2-2 network with sigmoid activations and squared error, η = 0.5. These are the numbers from the classic worked example; your slides may use different ones, but the steps are the same. Click through the phases, then train.');
+  const init = { w1: .15, w2: .20, w3: .25, w4: .30, w5: .40, w6: .45, w7: .50, w8: .55, b1: .35, b2: .60 };
+  const i1 = .05, i2 = .10, t1 = .01, t2 = .99; let w = { ...init }, phase = 0, iters = 0;
+  const s = S('svg', { viewBox: '0 0 560 270', class: 'plot net' }, root);
+  const N = { i1: [70, 80], i2: [70, 200], h1: [280, 80], h2: [280, 200], o1: [490, 80], o2: [490, 200] };
+  const E = [['i1', 'h1', 'w1'], ['i2', 'h1', 'w2'], ['i1', 'h2', 'w3'], ['i2', 'h2', 'w4'], ['h1', 'o1', 'w5'], ['h2', 'o1', 'w6'], ['h1', 'o2', 'w7'], ['h2', 'o2', 'w8']];
+  const eg = E.map(([a, b, k]) => { const l = S('line', { x1: N[a][0], y1: N[a][1], x2: N[b][0], y2: N[b][1], class: 'edge' }, s); const t = S('text', { x: (N[a][0] * .7 + N[b][0] * .3), y: (N[a][1] * .7 + N[b][1] * .3) - 6, class: 'wl' }, s); return { l, t, k }; });
+  const ng = {}; for (const k in N) { const g = S('g', {}, s); S('circle', { cx: N[k][0], cy: N[k][1], r: 26, class: 'node' }, g); const t = S('text', { x: N[k][0], y: N[k][1] + 4, 'text-anchor': 'middle', class: 'nl' }, g); ng[k] = { g, t }; }
+  const o = out(root);
+  const fwd = () => { const h1 = sig(w.w1 * i1 + w.w2 * i2 + w.b1), h2 = sig(w.w3 * i1 + w.w4 * i2 + w.b1), o1 = sig(w.w5 * h1 + w.w6 * h2 + w.b2), o2 = sig(w.w7 * h1 + w.w8 * h2 + w.b2); return { h1, h2, o1, o2, E: .5 * (t1 - o1) ** 2 + .5 * (t2 - o2) ** 2 }; };
+  const grads = a => { const d1 = (a.o1 - t1) * a.o1 * (1 - a.o1), d2 = (a.o2 - t2) * a.o2 * (1 - a.o2); const dh1 = (d1 * w.w5 + d2 * w.w7) * a.h1 * (1 - a.h1), dh2 = (d1 * w.w6 + d2 * w.w8) * a.h2 * (1 - a.h2); return { w1: dh1 * i1, w2: dh1 * i2, w3: dh2 * i1, w4: dh2 * i2, w5: d1 * a.h1, w6: d1 * a.h2, w7: d2 * a.h1, w8: d2 * a.h2 }; };
+  const draw = () => {
+    const a = fwd();
+    eg.forEach(e => { e.t.textContent = e.k + '=' + w[e.k].toFixed(3); e.l.classList.toggle('hot', phase >= 3 && e.k === 'w5'); e.l.classList.toggle('flow', phase === 1); });
+    const vals = { i1: 'i₁ ' + i1, i2: 'i₂ ' + i2, h1: phase >= 1 ? a.h1.toFixed(3) : 'h₁', h2: phase >= 1 ? a.h2.toFixed(3) : 'h₂', o1: phase >= 1 ? a.o1.toFixed(3) : 'o₁', o2: phase >= 1 ? a.o2.toFixed(3) : 'o₂' };
+    for (const k in ng) { ng[k].t.textContent = vals[k]; ng[k].g.classList.toggle('hot', phase >= 3 && (k === 'o1' || k === 'h1')); }
+    const d = a.o1 - t1, sp = a.o1 * (1 - a.o1), g5 = d * sp * a.h1;
+    const msgs = [
+      `Inputs i₁ = ${i1}, i₂ = ${i2}. Targets: o₁ → ${t1}, o₂ → ${t2}. Click <b>Next</b> to run the forward pass.`,
+      `<b>1. Forward pass.</b> h₁ = σ(w₁i₁ + w₂i₂ + b₁) = ${a.h1.toFixed(4)}, h₂ = ${a.h2.toFixed(4)}; o₁ = σ(w₅h₁ + w₆h₂ + b₂) = ${a.o1.toFixed(4)}, o₂ = ${a.o2.toFixed(4)}.`,
+      `<b>2. Error.</b> E = ½(t₁−o₁)² + ½(t₂−o₂)² = ½(${t1}−${a.o1.toFixed(3)})² + ½(${t2}−${a.o2.toFixed(3)})² = <b>${a.E.toFixed(5)}</b>`,
+      `<b>3. Backprop to w₅</b> (highlighted path h₁ → o₁ → E):<br>∂E/∂w₅ = ∂E/∂out<sub>o1</sub> × ∂out<sub>o1</sub>/∂net<sub>o1</sub> × ∂net<sub>o1</sub>/∂w₅<br>= (o₁ − t₁) × o₁(1 − o₁) × h₁ = ${d.toFixed(4)} × ${sp.toFixed(4)} × ${a.h1.toFixed(4)} = <b>${g5.toFixed(5)}</b><br><small>how wrong the output is × how responsive the neuron is × how active its input was</small>`,
+      `<b>4. Update.</b> w₅ ← w₅ − η·∂E/∂w₅ = ${w.w5.toFixed(4)} − 0.5 × ${g5.toFixed(5)} = <b>${(w.w5 - 0.5 * g5).toFixed(5)}</b>. All weights update the same way (hidden weights sum contributions from both outputs). Click <b>Train</b>.`
+    ];
+    o.innerHTML = phase < 5 ? msgs[phase] : `Trained ${iters} step(s). Error E = <b>${a.E.toExponential(3)}</b> (started at 0.29837). Outputs o₁ = ${a.o1.toFixed(4)} (target .01), o₂ = ${a.o2.toFixed(4)} (target .99).`;
+  };
+  const train = n => { for (let k = 0; k < n; k++) { const g = grads(fwd()); for (const q in g) w[q] -= 0.5 * g[q]; iters++; } phase = 5; draw(); };
+  const r = row(root);
+  btn(r, 'Next phase ▶', () => { if (phase < 4) phase++; draw(); });
+  btn(r, 'Train 1 step', () => train(1)); btn(r, 'Train 1000 steps', () => train(1000));
+  btn(r, 'Reset', () => { w = { ...init }; phase = 0; iters = 0; draw(); }, 'ghost');
+  draw();
+};
+
+// ---------- 4.1 early stopping ----------
+W.earlystop = root => {
+  card(root, 'early stopping', 'Drag the stopping epoch. Training error keeps falling, but validation error reaches a minimum and then rises. That rise is overfitting.');
+  const tr = e => 0.08 + 0.85 * Math.exp(-e / 14), va = e => 0.2 + 0.8 * Math.exp(-e / 12) + 0.00004 * e * e;
+  let best = 0; for (let e = 0; e <= 100; e++) if (va(e) < va(best)) best = e;
+  const p = plot(root, { x: [0, 100], y: [0, 1], xl: 'epoch', yl: 'error' });
+  const lg = H('div', { class: 'legend' }, '<span><i style="background:var(--c1)"></i>training</span><span><i style="background:var(--c2)"></i>validation</span>', root);
+  const o = out(root);
+  slider(root, 'stop at epoch', 1, 100, 1, 70, e => {
+    p.clear(); p.fn(tr, 'l1'); p.fn(va, 'l3'); p.seg(best, 0, best, 1, 'grid2'); p.text(best + 1, 0.95, 'validation minimum');
+    p.seg(e, 0, e, 1, 'stopline'); p.dot(e, tr(e), 5, 'd1'); p.dot(e, va(e), 5, 'd4');
+    const v = e < best - 8 ? '⬇ underfitting: both errors still falling, so keep training' : e > best + 8 ? '⚠ overfitting: validation error is rising while training error still falls' : '✅ about right: this is where early stopping would stop';
+    o.innerHTML = `epoch ${e}: training ${tr(e).toFixed(3)}, validation ${va(e).toFixed(3)}. ${v}`;
+  });
+};
+
+// ---------- 4.1 L1 vs L2 ----------
+W.l1l2 = root => {
+  card(root, 'L1 vs L2: what the penalty does to a weight', 'Each training step adds the penalty\'s pull on top of the data gradient. Press "Apply penalty" repeatedly. L2 shrinks every weight proportionally, so they never reach 0. L1 subtracts a constant amount, so small weights hit exactly 0 (sparse).');
+  const init = [2.0, 1.2, 0.6, 0.25, 0.1, -0.4, -1.5];
+  let a = init.slice(), b = init.slice(), n = 0;
+  const box = H('div', { class: 'two row' }, '', root);
+  const A = H('div', {}, '<b>L2 (ridge)</b>', box), B = H('div', {}, '<b>L1 (lasso)</b>', box);
+  const da = H('div', { class: 'wbars' }, '', A), db = H('div', { class: 'wbars' }, '', B);
+  const o = out(root);
+  const draw = () => {
+    const bar = v => `<div class="wb"><div class="wbf ${v === 0 ? 'zero' : ''}" style="height:${Math.abs(v) * 40}px;${v < 0 ? 'background:var(--c2)' : ''}"></div><small>${v.toFixed(2)}</small></div>`;
+    da.innerHTML = a.map(bar).join(''); db.innerHTML = b.map(bar).join('');
+    o.innerHTML = `after ${n} penalty steps: L2 has <b>${a.filter(v => v === 0).length}</b> zero weights, L1 has <b>${b.filter(v => v === 0).length}</b>.`;
+  };
+  btn(root, 'Apply penalty step', () => { n++; a = a.map(v => v * 0.8); b = b.map(v => Math.sign(v) * Math.max(0, Math.abs(v) - 0.15)); draw(); });
+  btn(root, 'Reset', () => { a = init.slice(); b = init.slice(); n = 0; draw(); }, 'ghost');
+  draw();
+};
+
+// ---------- 4.1 dropout ----------
+W.dropout = root => {
+  card(root, 'dropout', 'Each training step drops every hidden neuron with probability p, so each step trains a different "thinned" network. At inference, every neuron is used.');
+  const s = S('svg', { viewBox: '0 0 560 260', class: 'plot net' }, root);
+  const L = [3, 6, 6, 2], xs = [70, 210, 350, 490], nodes = [];
+  L.forEach((n, l) => { nodes[l] = []; for (let i = 0; i < n; i++) nodes[l].push([xs[l], 130 + (i - (n - 1) / 2) * 38]); });
+  const eg = S('g', {}, s), ng = S('g', {}, s);
+  const o = out(root); let p = 0.5, mask = null, infer = false, steps = 0;
+  const draw = () => {
+    eg.innerHTML = ng.innerHTML = '';
+    const alive = (l, i) => infer || !mask || l === 0 || l === 3 || mask[l][i];
+    for (let l = 0; l < 3; l++) nodes[l].forEach((a, i) => nodes[l + 1].forEach((b, j) => { if (alive(l, i) && alive(l + 1, j)) S('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: 'edge' }, eg); }));
+    nodes.forEach((ly, l) => ly.forEach((a, i) => { const al = alive(l, i); S('circle', { cx: a[0], cy: a[1], r: 13, class: al ? 'node' : 'node dead' }, ng); if (!al) S('text', { x: a[0], y: a[1] + 5, 'text-anchor': 'middle', class: 'nl' }, ng).textContent = '✕'; }));
+    const dropped = mask && !infer ? mask.slice(1, 3).flat().filter(v => !v).length : 0;
+    o.innerHTML = infer ? `<b>Inference mode:</b> all neurons active; outputs scaled so the expected activation matches training.` : `training step ${steps}: dropped <b>${dropped}</b>/12 hidden neurons. With 12 droppable neurons there are 2¹² = <b>4096</b> possible thinned networks, all sharing weights.`;
+  };
+  const newMask = () => { mask = L.map(n => Array.from({ length: n }, () => Math.random() >= p)); steps++; infer = false; draw(); };
+  slider(root, 'drop probability p', 0, 0.8, 0.05, p, v => { p = v; });
+  const r = row(root); btn(r, 'Next training step', newMask); btn(r, 'Inference mode', () => { infer = true; draw(); }, 'ghost');
+  draw();
+};
+
+// ---------- 4.2 vanishing ----------
+W.vanish = root => {
+  card(root, 'vanishing and exploding gradients', 'The gradient reaching layer k is a product of one factor (w·σ′) per layer above it. Pick a per-layer factor and a depth, and watch the gradient size per layer (log scale).');
+  const box = H('div', { class: 'vbars' }, '', root); const o = out(root);
+  let fac = 0.25, depth = 12;
+  const draw = () => {
+    const g = []; for (let k = 1; k <= depth; k++) g.push(Math.pow(fac, depth - k));
+    box.innerHTML = g.map((v, i) => { const lg = Math.log10(v); const hgt = Math.max(2, Math.min(150, 75 + lg * 12)); return `<div class="vb"><div class="vbf ${lg < -3 ? 'lo' : lg > 3 ? 'hi' : ''}" style="height:${hgt}px"></div><small>L${i + 1}</small></div>`; }).join('');
+    const first = g[0];
+    o.innerHTML = `gradient at layer 1 = ${fac}^${depth - 1} = <b>${f(first)}</b> × the output gradient. ${first < 1e-3 ? '🧊 <b>vanishing</b>: the lower layers barely learn.' : first > 1e3 ? '💥 <b>exploding</b>: the updates blow up.' : '✅ the signal flows.'}`;
+  };
+  const r = row(root);
+  const sf = slider(r, 'per-layer factor', 0.1, 2, 0.05, fac, v => { fac = v; draw(); });
+  slider(r, 'depth (layers)', 2, 30, 1, depth, v => { depth = v; draw(); });
+  const r2 = row(root);
+  [['sigmoid, typical (0.25)', 0.25], ['ReLU + He init (≈1)', 1], ['weights too large (1.5)', 1.5]].forEach(([l, v]) => btn(r2, l, () => { sf.value = v; sf.dispatchEvent(new Event('input')); }, 'ghost'));
+};
+
+// ---------- 4.2 batch norm ----------
+W.bn = root => {
+  card(root, 'batch normalization', 'Gray is a layer\'s raw inputs, which drift as the earlier weights change. Make them drift into the sigmoid\'s flat (saturated) region. Blue is after BN: normalized, then scaled by γ and shifted by β.');
+  const p = plot(root, { x: [-10, 10], y: [0, 1], xl: 'value', ticks: true });
+  const o = out(root); let mu = 4, sd = 2.5, ga = 1, be = 0;
+  const rnd = (() => { let s = 7; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; })();
+  const base = Array.from({ length: 400 }, () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return (u - 3) / Math.sqrt(0.5); });
+  const hist = (vals, cls) => { const bins = new Array(40).fill(0); vals.forEach(v => { const k = Math.floor((v + 10) / 0.5); if (k >= 0 && k < 40) bins[k]++; }); const m = 60; bins.forEach((c, k) => { if (c) S('rect', { x: p.X(-10 + k * 0.5), y: p.Y(c / m), width: p.X(0.5) - p.X(0) - 1, height: p.Y(0) - p.Y(c / m), class: cls }, p.layer); }); };
+  const draw = () => {
+    p.clear(); const raw = base.map(z => mu + sd * z);
+    const m = raw.reduce((a, b) => a + b) / raw.length, v = raw.reduce((a, b) => a + (b - m) ** 2, 0) / raw.length;
+    const bn = raw.map(x => ga * (x - m) / Math.sqrt(v + 1e-5) + be);
+    hist(raw, 'hraw'); hist(bn, 'hbn'); p.fn(sig, 'l3 dash');
+    const sat = raw.filter(x => Math.abs(x) > 4).length / raw.length;
+    o.innerHTML = `raw: mean ${m.toFixed(2)}, std ${Math.sqrt(v).toFixed(2)}, <b>${(100 * sat).toFixed(0)}%</b> in the saturated region (|x| > 4, where σ′ ≈ 0). After BN: mean ≈ <b>${be.toFixed(2)}</b>, std ≈ <b>${ga.toFixed(2)}</b>, whatever the drift.`;
+  };
+  const r = row(root);
+  slider(r, 'drift: mean', -6, 6, 0.1, mu, x => { mu = x; draw(); }); slider(r, 'drift: std', 0.3, 4, 0.1, sd, x => { sd = x; draw(); });
+  const r2 = row(root);
+  slider(r2, 'γ (learned scale)', 0.2, 3, 0.1, ga, x => { ga = x; draw(); }); slider(r2, 'β (learned shift)', -4, 4, 0.1, be, x => { be = x; draw(); });
+};
+
+// ---------- 4.2 clipping ----------
+W.clip = root => {
+  card(root, 'clipvalue vs clipnorm', 'Gray is the raw gradient. Orange: clipvalue clips each component to the box, so the direction changes. Blue: clipnorm shrinks the vector onto the circle, so the direction is kept.');
+  const s = S('svg', { viewBox: '0 0 560 300', class: 'plot' }, root);
+  const C = [280, 150], sc = 40;
+  S('defs', {}, s).innerHTML = ['g', 'v', 'n'].map(k => `<marker id="ar${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" class="ar${k}"/></marker>`).join('');
+  S('line', { x1: 0, x2: 560, y1: C[1], y2: C[1], class: 'grid' }, s); S('line', { y1: 0, y2: 300, x1: C[0], x2: C[0], class: 'grid' }, s);
+  const box = S('rect', { class: 'clipbox' }, s), circ = S('circle', { cx: C[0], cy: C[1], class: 'clipcirc' }, s);
+  const mk = k => S('line', { x1: C[0], y1: C[1], class: 'arr' + k, 'marker-end': `url(#ar${k})` }, s);
+  const ag = mk('g'), av = mk('v'), an = mk('n'); const o = out(root);
+  let gx = 0.6, gy = 3.4, t = 1;
+  const set = (a, x, y) => { a.setAttribute('x2', C[0] + x * sc); a.setAttribute('y2', C[1] - y * sc); };
+  const ang = (x, y) => (Math.atan2(y, x) * 180 / Math.PI).toFixed(0) + '°';
+  const draw = () => {
+    box.setAttribute('x', C[0] - t * sc); box.setAttribute('y', C[1] - t * sc); box.setAttribute('width', 2 * t * sc); box.setAttribute('height', 2 * t * sc); circ.setAttribute('r', t * sc);
+    const vx = Math.max(-t, Math.min(t, gx)), vy = Math.max(-t, Math.min(t, gy)); const nr = Math.hypot(gx, gy), k = nr > t ? t / nr : 1;
+    set(ag, gx, gy); set(av, vx, vy); set(an, gx * k, gy * k);
+    o.innerHTML = `raw [${gx.toFixed(2)}, ${gy.toFixed(2)}] at ${ang(gx, gy)} → clipvalue [${vx.toFixed(2)}, ${vy.toFixed(2)}] at <b style="color:var(--c2)">${ang(vx, vy)}</b> &nbsp;|&nbsp; clipnorm [${(gx * k).toFixed(2)}, ${(gy * k).toFixed(2)}] at <b style="color:var(--c1)">${ang(gx * k, gy * k)}</b>`;
+  };
+  const r = row(root);
+  slider(r, 'gradient x', -3.4, 3.4, 0.05, gx, v => { gx = v; draw(); }); slider(r, 'gradient y', -3.4, 3.4, 0.05, gy, v => { gy = v; draw(); }); slider(r, 'threshold', 0.3, 3, 0.05, t, v => { t = v; draw(); });
+};
+
+// ---------- 4.3 optimizers ----------
+W.optim = root => {
+  card(root, 'optimizer race in a narrow valley', 'The cost f = ½(0.2x² + 10y²) is a long, narrow valley: steep across (y), nearly flat along (x). All four optimizers start at the same point. Press Play. Plain GD zig-zags and crawls, momentum builds speed along the valley (and overshoots at high η, which is the price of that speed), and RMSProp and Adam rescale each direction.');
+  const s = S('svg', { viewBox: '0 0 560 280', class: 'plot' }, root);
+  const X = x => 280 + x * 52, Y = y => 140 - y * 52;
+  [0.05, 0.2, 0.5, 1, 1.6, 2.5].forEach(c => S('ellipse', { cx: X(0), cy: Y(0), rx: Math.sqrt(2 * c / 0.2) * 52, ry: Math.sqrt(2 * c / 10) * 52, class: 'contour' }, s));
+  S('text', { x: X(0) - 5, y: Y(0) + 5, class: 'lab' }, s).textContent = '✕';
+  const cols = { 'GD': 'var(--c4)', 'Momentum': 'var(--c2)', 'RMSProp': 'var(--c3)', 'Adam': 'var(--c1)' };
+  H('div', { class: 'legend' }, Object.entries(cols).map(([k, c]) => `<span><i style="background:${c}"></i>${k}</span>`).join(''), root);
+  const g = S('g', {}, s); const o = out(root);
+  let eta = 0.05, st, timer;
+  const grad = ([x, y]) => [0.2 * x, 10 * y], F = ([x, y]) => 0.5 * (0.2 * x * x + 10 * y * y);
+  const reset = () => { clearInterval(timer); st = {}; for (const k in cols) st[k] = { p: [-4.8, 1.6], m: [0, 0], v: [0, 0], t: 0, path: [[-4.8, 1.6]] }; draw(); };
+  const step = () => {
+    for (const k in st) {
+      const q = st[k], gr = grad(q.p); q.t++;
+      if (k === 'GD') q.p = q.p.map((v, i) => v - eta * gr[i]);
+      if (k === 'Momentum') { q.m = q.m.map((m, i) => 0.9 * m - eta * gr[i]); q.p = q.p.map((v, i) => v + q.m[i]); }
+      if (k === 'RMSProp') { q.v = q.v.map((v, i) => 0.9 * v + 0.1 * gr[i] ** 2); q.p = q.p.map((v, i) => v - eta * 1.5 * gr[i] / Math.sqrt(q.v[i] + 1e-8)); }
+      if (k === 'Adam') { q.m = q.m.map((m, i) => 0.9 * m + 0.1 * gr[i]); q.v = q.v.map((v, i) => 0.999 * v + 0.001 * gr[i] ** 2); const mh = q.m.map(m => m / (1 - 0.9 ** q.t)), vh = q.v.map(v => v / (1 - 0.999 ** q.t)); q.p = q.p.map((v, i) => v - eta * 1.5 * mh[i] / (Math.sqrt(vh[i]) + 1e-8)); }
+      q.p = q.p.map(v => Math.max(-50, Math.min(50, v))); q.path.push(q.p);
+    }
+    draw();
+  };
+  const draw = () => {
+    g.innerHTML = '';
+    for (const k in st) { const q = st[k]; S('path', { d: 'M' + q.path.map(([x, y]) => X(x).toFixed(1) + ',' + Y(y).toFixed(1)).join('L'), fill: 'none', stroke: cols[k], 'stroke-width': 2, 'stroke-opacity': .85 }, g); S('circle', { cx: X(q.p[0]), cy: Y(q.p[1]), r: 5, fill: cols[k] }, g); }
+    const t = st.GD.t; o.innerHTML = `step ${t}: ` + Object.keys(st).map(k => `${k} cost = <b>${f(F(st[k].p))}</b>`).join(' · ') + (eta > 0.2 ? ' — note GD diverges in the steep y-direction when η > 0.2' : '');
+  };
+  slider(root, 'learning rate η', 0.02, 0.22, 0.01, eta, v => { eta = v; reset(); });
+  const r = row(root);
+  btn(r, '▶ Play 60 steps', () => { clearInterval(timer); let n = 0; timer = setInterval(() => { step(); if (++n >= 60) clearInterval(timer); }, 70); });
+  btn(r, 'Step', step); btn(r, 'Reset', reset, 'ghost');
+  reset();
+};
+
+// ---------- exam quiz ----------
+W.quiz = root => {
+  root.classList.add('widget');
+  H('div', { class: 'wtitle' }, '📝 Past exams: self-check', root);
+  H('p', { class: 'wblurb' }, 'Closed book, like the real exam. You need 18/20 for an A. Your best score is saved in this browser. The answer key was worked out from the slides, not provided by the course.', root);
+  const D = window.EXAMS, KEY = { jan: 'dcbcabdbacacdaaaccbd', re: 'cbcdabadbcdbdccadbcb' };
+  const NAME = { jan: 'January 2026 exam', re: 'April 2026 re-exam' };
+  const r = row(root); const body = H('div', {}, '', root);
+  const load = id => {
+    r.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.id === id));
+    let best = null; try { best = localStorage.getItem('id2223-best-' + id); } catch (e) { }
+    body.innerHTML = `<p class="muted">${NAME[id]}${best ? ` · your best: <b>${best}/20</b>` : ''}</p>` + D[id].map((q, i) => `<div class="q" data-i="${i}"><p><b>${i + 1}.</b> ${q.q}</p>${q.o.map((t, j) => `<label class="opt"><input type="radio" name="${id}${i}" value="${'abcd'[j]}"> <span>(${'abcd'[j]}) ${t}</span></label>`).join('')}</div>`).join('');
+    const go = H('div', { class: 'row' }, '', body);
+    const res = out(body);
+    btn(go, 'Check my answers', () => {
+      let sc = 0;
+      body.querySelectorAll('.q').forEach((qd, i) => {
+        const pick = qd.querySelector('input:checked'), k = KEY[id][i];
+        qd.querySelectorAll('.opt').forEach(l => { const v = l.querySelector('input').value; l.classList.toggle('right', v === k); l.classList.toggle('wrong', pick && v === pick.value && v !== k); });
+        if (pick && pick.value === k) sc++;
+      });
+      const g = sc >= 18 ? 'A' : sc >= 16 ? 'B' : sc >= 14 ? 'C' : sc >= 12 ? 'D' : sc >= 10 ? 'E' : 'F';
+      res.innerHTML = `Score: <b>${sc}/20</b>, grade <b>${g}</b>. ${sc >= 18 ? '🎉 A-level!' : 'Reread the notes for the red ones, then retake.'}`;
+      try { if (!best || sc > +best) localStorage.setItem('id2223-best-' + id, sc); } catch (e) { }
+    });
+    btn(go, 'Reset', () => load(id), 'ghost');
+  };
+  ['jan', 're'].forEach(id => { const b = btn(r, NAME[id], () => load(id)); b.dataset.id = id; });
+  load('jan');
+};
+
+// ---------- page chrome: TOC, progress ----------
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-widget]').forEach(d => { try { W[d.dataset.widget] && W[d.dataset.widget](d); } catch (e) { console.error(e); } });
+  const toc = document.getElementById('toc'), main = document.getElementById('main');
+  let done = {}; try { done = JSON.parse(localStorage.getItem('id2223-done') || '{}'); } catch (e) { }
+  const hs = [...main.querySelectorAll('h1, h2')];
+  const checkable = [];
+  hs.forEach((h, i) => {
+    h.id = h.id || 's' + i;
+    const a = H('a', { href: '#' + h.id, class: h.tagName === 'H1' ? 't1' : 't2' }, h.textContent, toc);
+    if (h.tagName === 'H2' && /^\d+\.\d+/.test(h.textContent)) {
+      checkable.push(h.id);
+      const b = H('button', { class: 'got' }, '', h);
+      const upd = () => { b.textContent = done[h.id] ? '✓ Got it' : 'Mark as understood'; b.classList.toggle('on', !!done[h.id]); a.classList.toggle('done', !!done[h.id]); prog(); };
+      b.onclick = () => { done[h.id] = !done[h.id]; try { localStorage.setItem('id2223-done', JSON.stringify(done)); } catch (e) { } upd(); };
+      setTimeout(upd);
+    }
+  });
+  const bar = document.getElementById('progfill'), lab = document.getElementById('proglab');
+  function prog() { const n = checkable.filter(k => done[k]).length; bar.style.width = (100 * n / checkable.length) + '%'; lab.textContent = `${n}/${checkable.length} sections understood`; }
+  prog();
+});
+</script>
+</body></html>
