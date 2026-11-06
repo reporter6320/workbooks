@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DD2360 Catch-up Workbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+/* Layout: one reading column with a sticky module index on wide screens; each module = concept build-up, worked example, exercises (3 levels), lab with solution */
+:root{
+  --bg:#f6f7f4; --surface:#ffffff; --fg:#1d2420; --muted:#5b665f; --line:#d9ded8;
+  --accent:#3f7d20; --accent-soft:#e6f0dd; --code-bg:#eef1ec; --warn:#9a5b00; --warn-soft:#f6ecdc;
+  --display:"Fraunces",Georgia,serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141815; --surface:#1b201c; --fg:#e4e9e4; --muted:#9aa59d; --line:#2e3630;
+  --accent:#8bc867; --accent-soft:#233020; --code-bg:#222823; --warn:#e0a548; --warn-soft:#2e2619; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141815; --surface:#1b201c; --fg:#e4e9e4; --muted:#9aa59d; --line:#2e3630;
+  --accent:#8bc867; --accent-soft:#233020; --code-bg:#222823; --warn:#e0a548; --warn-soft:#2e2619; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 80px}
+.wrap{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px}
+@media (max-width:860px){.wrap{grid-template-columns:minmax(0,1fr)} nav.toc{position:static!important}}
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 24px);align-self:start;font-size:14px;max-height:calc(100vh - 48px);overflow-y:auto}
+nav.toc ol{list-style:none;padding:0;margin:0;display:grid;gap:2px}
+nav.toc a{display:flex;gap:8px;align-items:baseline;color:var(--fg);text-decoration:none;padding:5px 8px;border-radius:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);outline:none}
+nav.toc .n{font-family:var(--mono);color:var(--muted);font-size:12px;min-width:20px}
+nav.toc .done .n{color:var(--accent)}
+nav.toc .done span:last-child::after{content:" ✓";color:var(--accent)}
+.progress{margin:16px 8px 0;font-size:13px;color:var(--muted)}
+.bar{height:6px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+main{min-width:0}
+header h1{font-family:var(--display);font-size:clamp(30px,5vw,44px);line-height:1.1;margin:0 0 12px;text-wrap:balance}
+header p{color:var(--muted);max-width:66ch;margin:0 0 8px}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:20px 0 0}
+.how div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:14px}
+.how b{display:block;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin-bottom:2px}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:var(--code-bg);color:var(--muted)}
+.tag.book{background:var(--accent-soft);color:var(--accent)}
+section.mod{border-top:1px solid var(--line);padding-top:36px;margin-top:48px}
+section.mod h2{font-family:var(--display);font-size:30px;line-height:1.2;margin:4px 0 6px;text-wrap:balance}
+.goal{color:var(--muted);margin:0 0 8px;max-width:68ch}
+.goals{font-size:14px;color:var(--muted);margin:8px 0 20px}
+.goals li{margin:2px 0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h3{font-size:19px;margin:32px 0 8px;font-weight:600;text-wrap:balance}
+h4{font-size:14px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:24px 0 8px;font-weight:600}
+p,li{max-width:68ch}
+ul,ol{padding-left:22px}
+li{margin:5px 0}
+code{overflow-wrap:anywhere;font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px}
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.55;background:var(--code-bg);padding:14px 16px;border-radius:8px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0;overflow-wrap:normal}
+.tbl{overflow-x:auto;margin:12px 0}
+table{border-collapse:collapse;font-size:14px;min-width:440px}
+th,td{text-align:left;padding:7px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:13px}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.key{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);padding:12px 16px;border-radius:6px;margin:16px 0}
+.key strong:first-child{color:var(--accent)}
+.pit{border-left-color:var(--warn);background:var(--warn-soft)} .pit strong:first-child{color:var(--warn)}
+.worked{border:1px solid var(--line);border-radius:10px;padding:4px 18px 10px;margin:20px 0;background:var(--surface)}
+.worked > .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-top:12px}
+.worked ol.steps{counter-reset:s;list-style:none;padding:0}
+.worked ol.steps > li{counter-increment:s;padding-left:34px;position:relative;margin:10px 0}
+.worked ol.steps > li::before{content:counter(s);position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font:600 12px/22px var(--mono);text-align:center}
+details{background:var(--surface);border:1px solid var(--line);border-radius:8px;margin:8px 0;padding:0}
+summary{cursor:pointer;padding:10px 14px;font-weight:500;list-style:none;display:flex;gap:10px;align-items:baseline}
+summary::-webkit-details-marker{display:none}
+summary .lv{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:3px;background:var(--code-bg);color:var(--muted);flex:none}
+summary .lv.l2{background:var(--accent-soft);color:var(--accent)}
+summary .lv.l3{background:var(--warn-soft);color:var(--warn)}
+summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+details .ans{padding:10px 14px 12px 14px;border-top:1px dashed var(--line)}
+details .ans p{margin:6px 0}
+.lab{background:var(--accent-soft);border-radius:10px;padding:14px 18px;margin:24px 0}
+.lab > h4{margin:0 0 6px;color:var(--accent)}
+.lab details{background:var(--surface)}
+.lab details summary::before{content:none}
+label.check{display:flex;gap:10px;align-items:center;margin-top:24px;font-weight:500;cursor:pointer;width:fit-content}
+label.check input{width:18px;height:18px;accent-color:var(--accent)}
+.svgbox{overflow-x:auto;margin:16px 0}
+.svgbox svg{display:block;max-width:100%;height:auto}
+.svgbox text{font-family:var(--mono);font-size:12px;fill:var(--fg)}
+.svgbox .mut{fill:var(--muted)}
+.formula{font-family:var(--mono);font-size:15px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:12px 0;overflow-x:auto;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+img{max-width:100%}[hidden]{display:none!important}
+.back{font-size:14px;color:var(--accent)}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+<nav class="toc" aria-label="Modules">
+  <ol id="toc"></ol>
+  <div class="progress"><span id="ptext">0 modules done</span><div class="bar"><i id="pbar"></i></div></div>
+</nav>
+
+<main>
+<header>
+  <p><a class="back" href="../../">← All workbooks</a></p>
+  <div class="eyebrow">DD2360 Applied GPU Programming · HT26 · self-study edition</div>
+  <h1>Catch-up workbook: lectures 1–2 and textbook Chapter 1</h1>
+  <p>This workbook is written to replace the lectures, not summarize them. Every idea is built from the ground up, so you can learn it alone. Plan about 90 minutes per module.</p>
+  <div class="how">
+    <div><b>1 · Read</b>The concept sections, in order. Each builds on the one before.</div>
+    <div><b>2 · Follow</b>The worked example with a pen, before looking at each step's answer.</div>
+    <div><b>3 · Answer</b>Exercises out loud before opening. <span class="tag">Recall</span> <span class="tag" style="background:var(--accent-soft);color:var(--accent)">Explain</span> <span class="tag" style="background:var(--warn-soft);color:var(--warn)">Apply</span></div>
+    <div><b>4 · Run</b>The lab on Colab. Predict first, then compare with the solution.</div>
+  </div>
+</header>
+
+<!-- ================= MODULE 1 ================= -->
+<section class="mod" id="m1" data-title="Latency vs throughput">
+  <div class="eyebrow">Module 1 · Lecture 1.1, 1.2 · Book §1.1</div>
+  <h2>Two ways to build a processor</h2>
+  <p class="goal">Why CPUs and GPUs are designed so differently, and why real programs use both.</p>
+  <ul class="goals"><li>After this module you can: define latency and throughput, explain where a CPU and a GPU spend their transistors, and decide which processor fits a given workload.</li></ul>
+
+  <h3>1.1 Two measures of speed</h3>
+  <p>Picture moving people across a city. A sports car takes one passenger in 10 minutes. A bus takes 60 passengers in 30 minutes. Which is faster? It depends on what you measure:</p>
+  <ul>
+    <li><strong>Latency</strong> is the time to finish <em>one</em> task. The car wins (10 vs 30 minutes).</li>
+    <li><strong>Throughput</strong> is the number of tasks finished per unit of time. The bus wins: 2 passengers/minute against 0.1.</li>
+  </ul>
+  <p>Processors face the same trade-off. A chip has a fixed budget of transistors, power and area. You can spend it on making each instruction stream finish quickly, or on running as many streams as possible at once. You cannot maximize both.</p>
+
+  <h3>1.2 The CPU: built for latency</h3>
+  <p>A CPU runs operating systems, browsers and compilers: code with lots of branches, pointer chasing and dependencies, where step <em>n+1</em> needs the result of step <em>n</em>. For that code, the only way to go fast is to make <em>one thread</em> fast. So a CPU core spends most of its area on things that are not arithmetic:</p>
+  <ul>
+    <li><strong>Large caches</strong> (often tens of MB) so that most memory accesses never go to slow DRAM.</li>
+    <li><strong>Branch prediction</strong> to guess which way an <code>if</code> will go and start executing before it is known.</li>
+    <li><strong>Out-of-order execution</strong> to find independent instructions further ahead and run them while waiting on others.</li>
+    <li><strong>High clock speed</strong> (4–5 GHz) and a handful of powerful cores (8–64).</li>
+  </ul>
+
+  <h3>1.3 The GPU: built for throughput</h3>
+  <p>A GPU was first built for graphics: compute the colour of millions of pixels, each independently, 60 times per second. Nobody cares how long <em>one</em> pixel takes, only that all of them are done in 16 ms. So a GPU spends its area the opposite way:</p>
+  <ul>
+    <li><strong>Thousands of simple arithmetic units</strong> (2,560 on a T4, 16,896 on an H100).</li>
+    <li><strong>Tiny control logic:</strong> one instruction decoder drives 32 threads at once (Module 2), and there is no branch prediction or out-of-order execution.</li>
+    <li><strong>Small caches per thread.</strong> Instead of avoiding memory stalls, the GPU <em>hides</em> them by always having other work ready (Module 2).</li>
+    <li><strong>Very high memory bandwidth</strong> (320 GB/s on a T4, about 3.35 TB/s on an H100, versus about 100 GB/s for a desktop CPU), because feeding thousands of units needs a wide pipe.</li>
+  </ul>
+  <div class="svgbox">
+  <svg viewBox="0 0 620 200" role="img" aria-label="Chip area: CPU is mostly cache and control with few cores; GPU is mostly arithmetic units">
+    <text x="10" y="16">CPU die</text>
+    <rect x="10" y="24" width="280" height="160" rx="6" fill="var(--code-bg)" stroke="var(--line)"/>
+    <rect x="20" y="34" width="120" height="70" rx="4" fill="var(--warn-soft)" stroke="var(--warn)"/><text x="34" y="74">control</text>
+    <rect x="150" y="34" width="60" height="34" rx="4" fill="var(--accent)"/><rect x="220" y="34" width="60" height="34" rx="4" fill="var(--accent)"/>
+    <rect x="150" y="72" width="60" height="32" rx="4" fill="var(--accent)"/><rect x="220" y="72" width="60" height="32" rx="4" fill="var(--accent)"/>
+    <rect x="20" y="112" width="260" height="62" rx="4" fill="var(--line)"/><text x="110" y="148">large cache</text>
+    <text x="330" y="16">GPU die</text>
+    <rect x="330" y="24" width="280" height="160" rx="6" fill="var(--code-bg)" stroke="var(--line)"/>
+    <g id="gpucores"></g>
+    <rect x="340" y="164" width="260" height="12" rx="3" fill="var(--line)"/><text x="430" y="196" class="mut">small caches + control per row</text>
+    <rect x="10" y="190" width="10" height="8" fill="var(--accent)"/><text x="26" y="198" class="mut">arithmetic units</text>
+  </svg></div>
+
+  <h3>1.4 Heterogeneous computing</h3>
+  <p>The textbook's central idea is that real applications contain both kinds of code: serial control logic (reading input, making decisions) and large data-parallel loops (the same operation on millions of elements). The best design uses each processor for what it is good at. In CUDA this is explicit:</p>
+  <ul>
+    <li>The <strong>host</strong> (CPU) runs <code>main()</code>, does the serial parts and decides what the GPU does.</li>
+    <li>The <strong>device</strong> (GPU) runs <strong>kernels</strong>: functions executed by thousands of threads in parallel.</li>
+    <li>They have <strong>separate memories</strong> connected by a PCIe link (16–64 GB/s), so data has to be copied between them. This cost appears in every assignment.</li>
+  </ul>
+
+  <div class="worked">
+    <div class="lbl">Worked example</div>
+    <p><strong>Problem.</strong> An image filter does 100 floating-point operations per pixel on a 4K image (3840 × 2160 ≈ 8.3 million pixels). A CPU core does about 4×10⁹ simple operations per second, and the T4 about 8×10¹² FP32 operations per second. Estimate the time on one CPU core and on the GPU, ignoring memory.</p>
+    <ol class="steps">
+      <li>Total work: 8.3×10⁶ pixels × 100 = 8.3×10⁸ operations.</li>
+      <li>One CPU core: 8.3×10⁸ / 4×10⁹ ≈ 0.21 s.</li>
+      <li>GPU at peak: 8.3×10⁸ / 8×10¹² ≈ 0.1 ms. That is 2,000× faster in theory.</li>
+      <li>Reality check: the image is 8.3×10⁶ × 4 bytes ≈ 33 MB. Copying it over PCIe at ~12 GB/s takes ≈ 2.8 ms each way, about 50× longer than the computation. So the copies decide the real speed-up unless the data stays on the GPU for many operations.</li>
+    </ol>
+    <p><strong>Lesson.</strong> The GPU's raw speed only pays off when there is enough work per byte moved. You will measure exactly this in Assignment 1.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Define latency and throughput in one sentence each.</summary><div class="ans"><p>Latency is the time from start to finish of a single task. Throughput is how many tasks are completed per unit of time.</p></div></details>
+  <details><summary><span class="lv">Recall</span>Name three things a CPU core spends its area on that are not arithmetic.</summary><div class="ans"><p>Large caches, branch prediction and out-of-order execution logic (also: register renaming, deep pipelines for high clock speeds).</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why can a GPU get away with small caches?</summary><div class="ans"><p>Because it tolerates memory latency instead of avoiding it. When some threads wait for memory, the hardware runs other threads that are ready. With enough threads, the arithmetic units stay busy even though each individual access is slow.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why must data be copied between CPU and GPU, and why does that matter for performance?</summary><div class="ans"><p>On a discrete GPU, host RAM and device memory are physically separate, joined by PCIe. PCIe bandwidth (tens of GB/s) is 10–100× lower than GPU memory bandwidth, so a program that copies a lot and computes little is limited by the copies, not the GPU.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Classify each as CPU- or GPU-suited: (a) compiling a C program, (b) multiplying two 4096×4096 matrices, (c) walking a linked list, (d) training a neural network, (e) checking a password against a hash once.</summary><div class="ans"><p>(a) CPU: branchy, irregular, many dependencies. (b) GPU: huge amount of independent arithmetic. (c) CPU: each step depends on the previous pointer, so there is no parallelism. (d) GPU: dominated by matrix multiplications. (e) CPU: a single small task; launching a GPU kernel and copying data would take longer than the work.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A kernel does 10 operations per 4-byte element on 100 million elements. Is the PCIe copy or the kernel likely to dominate on a T4?</summary><div class="ans"><p>Data: 400 MB in, perhaps 400 MB out. At ~12 GB/s that is ≈ 33 ms each way. Work: 10⁹ operations ≈ 0.13 ms at peak, and even memory-bound the kernel reads/writes 800 MB at 320 GB/s ≈ 2.5 ms. The copies dominate by about 25×.</p></div></details>
+  <label class="check"><input type="checkbox" id="c1"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 2 ================= -->
+<section class="mod" id="m2" data-title="Warps & latency hiding">
+  <div class="eyebrow">Module 2 · Lecture 1.2</div>
+  <h2>Warps, SIMT and hiding latency</h2>
+  <p class="goal">How thousands of slow threads add up to a fast processor.</p>
+  <ul class="goals"><li>After this module you can: explain what a warp is, the difference between SIMD and SIMT, how latency hiding works (with numbers), and what warp divergence costs.</li></ul>
+
+  <h3>2.1 The problem: memory is slow</h3>
+  <p>Reading from GPU global memory takes roughly <strong>400–800 clock cycles</strong>. An arithmetic instruction takes about 4. If a thread computed, then waited 500 cycles for its next number, its arithmetic unit would be idle more than 99% of the time. A CPU fights this with big caches. A GPU uses a different trick.</p>
+
+  <h3>2.2 Warps: the unit of execution</h3>
+  <p>The GPU groups threads into bundles of <strong>32 called warps</strong>. A warp is the real unit of scheduling: the hardware fetches and decodes <em>one</em> instruction and all 32 threads execute it, each on its own data. Threads 0–31 of a block form warp 0, threads 32–63 warp 1, and so on.</p>
+  <p>This is why GPU control logic is so cheap: one decoder serves 32 threads. It is also why block sizes should be multiples of 32. A block of 48 threads makes 2 warps, the second only half full, wasting 16 lanes on every instruction.</p>
+
+  <h3>2.3 SIMD versus SIMT</h3>
+  <ul>
+    <li><strong>SIMD</strong> (single instruction, multiple data), used in CPU vector units like AVX: <em>one</em> thread issues an instruction that operates on a vector register of 8 or 16 values. The programmer or compiler must pack data into vectors explicitly.</li>
+    <li><strong>SIMT</strong> (single instruction, multiple threads), NVIDIA's model: you write code for <em>one scalar thread</em>, and every thread gets its own ID and registers. The hardware groups 32 threads into a warp and runs them together. You get SIMD efficiency while writing simple scalar code.</li>
+  </ul>
+
+  <h3>2.4 Latency hiding by switching warps</h3>
+  <p>Each SM holds many warps at once (up to 32 on a T4, 64 on an H100). Every cycle, the <strong>warp scheduler</strong> picks a warp whose next instruction is ready and issues it. When warp 0 issues a memory load, it simply waits; the scheduler runs warp 1, then warp 2, and so on. By the time it cycles back, warp 0's data has arrived.</p>
+  <div class="svgbox">
+  <svg viewBox="0 0 640 170" role="img" aria-label="Timeline: four warps take turns; while one waits on memory, others compute">
+    <text x="0" y="28">warp 0</text><text x="0" y="62">warp 1</text><text x="0" y="96">warp 2</text><text x="0" y="130">warp 3</text>
+    <rect x="70" y="14" width="60" height="20" rx="3" fill="var(--accent)"/><rect x="130" y="14" width="240" height="20" rx="3" fill="var(--line)"/><rect x="370" y="14" width="60" height="20" rx="3" fill="var(--accent)"/>
+    <rect x="130" y="48" width="60" height="20" rx="3" fill="var(--accent)"/><rect x="190" y="48" width="240" height="20" rx="3" fill="var(--line)"/><rect x="430" y="48" width="60" height="20" rx="3" fill="var(--accent)"/>
+    <rect x="190" y="82" width="60" height="20" rx="3" fill="var(--accent)"/><rect x="250" y="82" width="240" height="20" rx="3" fill="var(--line)"/><rect x="490" y="82" width="60" height="20" rx="3" fill="var(--accent)"/>
+    <rect x="250" y="116" width="60" height="20" rx="3" fill="var(--accent)"/><rect x="310" y="116" width="240" height="20" rx="3" fill="var(--line)"/><rect x="550" y="116" width="60" height="20" rx="3" fill="var(--accent)"/>
+    <rect x="70" y="152" width="14" height="10" fill="var(--accent)"/><text x="90" y="161">computing</text>
+    <rect x="190" y="152" width="14" height="10" fill="var(--line)"/><text x="210" y="161">waiting on memory</text>
+    <text x="380" y="161" class="mut">→ time; the SM always has a warp to run</text>
+  </svg></div>
+  <p>Why is switching free? On a CPU, switching threads means saving and restoring registers to memory. On a GPU, <strong>every resident warp keeps its own registers in the SM's huge register file</strong> (65,536 32-bit registers per SM). Nothing is saved or restored; the scheduler just picks a different warp next cycle.</p>
+  <div class="key"><strong>Consequence: oversubscribe.</strong> You launch far more threads than there are cores (often 10–100× more), so each SM always has spare warps to switch to. A kernel with too few threads cannot hide latency, no matter how good the code is.</div>
+
+  <h3>2.5 How many warps are enough? (Little's law)</h3>
+  <p>Queueing theory gives a rule of thumb: the amount of work that must be in flight equals latency × throughput. If a load takes 500 cycles and the SM can issue one instruction per cycle per scheduler, you need about 500 independent instructions in flight per scheduler to never stall. Each warp contributes only a few independent instructions before it waits, so you need many warps. That is the intuition behind <strong>occupancy</strong> (Module 8).</p>
+
+  <h3>2.6 Warp divergence</h3>
+  <p>All 32 threads of a warp share one instruction stream. What happens with <code>if (x &gt; 0) A(); else B();</code> when some threads have <code>x &gt; 0</code> and others don't? The warp runs <strong>both</strong> paths one after the other: first A with the "else" threads masked off (idle), then B with the "if" threads masked. The results are correct; the cost is time.</p>
+  <ul>
+    <li>Divergence only matters <em>within</em> a warp. Different warps taking different branches cost nothing extra.</li>
+    <li>Bounds checks like <code>if (i &lt; n)</code> diverge in at most one warp (the last), so they're essentially free.</li>
+  </ul>
+
+  <div class="worked">
+    <div class="lbl">Worked example</div>
+    <p><strong>Problem.</strong> A block has 128 threads. The kernel does <code>if (threadIdx.x % 2 == 0) A(); else B();</code> where A takes 100 cycles and B takes 60. How long does a warp take, and how would you fix it?</p>
+    <ol class="steps">
+      <li>Warps per block: 128 / 32 = 4.</li>
+      <li>Inside each warp, threads 0, 2, 4 … go to A and 1, 3, 5 … go to B. Both paths are needed in every warp.</li>
+      <li>Each warp therefore takes 100 + 60 = 160 cycles instead of 100 or 60.</li>
+      <li>Fix: branch on something constant across a warp, e.g. <code>if ((threadIdx.x / 32) % 2 == 0)</code>. Now warps 0 and 2 run only A (100 cycles) and warps 1 and 3 only B (60). The work is the same but with no masked lanes. (You may need to remap which data each thread handles to keep the result the same.)</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>How many threads are in a warp, and which threads of a block form warp 2?</summary><div class="ans"><p>32. Warp 2 is threads 64–95 (for a 1D block).</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is switching warps free on a GPU but expensive on a CPU?</summary><div class="ans"><p>All resident warps keep their registers in the SM's register file permanently, so switching just means issuing from a different warp. A CPU core has one set of registers per hardware thread (one or two), so a context switch must save and reload state through memory.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>SIMD vs SIMT: what is the difference for the programmer?</summary><div class="ans"><p>With SIMD you explicitly write vector operations (or rely on the compiler to vectorize). With SIMT you write normal scalar code for one thread using its index, and the hardware runs 32 such threads together.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A block has 100 threads. How many warps, and how many lanes are wasted?</summary><div class="ans"><p>⌈100/32⌉ = 4 warps = 128 lanes, so 28 lanes do nothing. A block size of 96 or 128 would be better.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A kernel launches 40 blocks of 32 threads on a T4 (40 SMs). Why will it be slow even if each thread's code is optimal?</summary><div class="ans"><p>Each SM gets 1 block = 1 warp. When that warp waits on memory, the SM has nothing else to run, so latency is fully exposed. You need many warps per SM (dozens) to hide latency.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Does <code>if (i &lt; n) c[i] = a[i] + b[i];</code> cause expensive divergence?</summary><div class="ans"><p>No. Only the single warp that straddles <code>n</code> has some threads in and some out, and the "else" path is empty. Every other warp is uniformly true (or uniformly false).</p></div></details>
+
+  <div class="lab"><h4>Lab: see warps in action</h4>
+    <ol>
+      <li>Write a kernel launched with <code>&lt;&lt;&lt;1, 96&gt;&gt;&gt;</code> where each thread prints <code>threadIdx.x</code>, <code>threadIdx.x / 32</code> (warp ID) and <code>threadIdx.x % 32</code> (lane ID).</li>
+      <li>Predict: will the lines come out in thread order? Will each warp's 32 lines stay together?</li>
+      <li>Run it, then add <code>cudaDeviceSynchronize()</code> after the launch if nothing prints.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+<pre><code>#include &lt;cstdio&gt;
+__global__ void who() {
+  int t = threadIdx.x;
+  printf("thread %2d  warp %d  lane %2d\n", t, t / 32, t % 32);
+}
+int main() { who&lt;&lt;&lt;1, 96&gt;&gt;&gt;(); cudaDeviceSynchronize(); }</code></pre>
+      <p><strong>What you should see:</strong> lines in groups of 32 with the same warp ID, usually in lane order inside a group, because a warp executes the <code>printf</code> together. The order of the <em>warps</em> (0, 1, 2) is not guaranteed and may differ between runs. Never write code that depends on warp or block order.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c2"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 3 ================= -->
+<section class="mod" id="m3" data-title="GPU hardware">
+  <div class="eyebrow">Module 3 · Lecture 1.3, 1-GPU-Architecture</div>
+  <h2>Inside the GPU: SMs and the memory hierarchy</h2>
+  <p class="goal">The physical layout you are programming for, and why it shapes every optimization in this course.</p>
+  <ul class="goals"><li>After this module you can: describe the GPU → SM → core hierarchy, list the memory levels with their scope and speed, compute core counts and bandwidth from specs, and explain what MIG means for you on the cluster.</li></ul>
+
+  <h3>3.1 The building block: the Streaming Multiprocessor</h3>
+  <p>A GPU is mostly copies of one unit, the <strong>Streaming Multiprocessor (SM)</strong>. Each SM is like a small processor of its own, containing:</p>
+  <ul>
+    <li><strong>CUDA cores</strong> (FP32/INT32 units), plus FP64 units, special-function units (sin, exp, sqrt) and, on newer GPUs, <strong>Tensor Cores</strong> for matrix math.</li>
+    <li><strong>Warp schedulers</strong>, usually 4 per SM, each issuing for its own set of warps.</li>
+    <li>A <strong>register file</strong> of 65,536 32-bit registers, shared by all resident threads.</li>
+    <li><strong>Shared memory / L1 cache</strong>: a fast on-chip memory (64 KB on a T4, up to 228 KB on an H100) that blocks on this SM can use.</li>
+  </ul>
+  <p>When you launch a kernel, the hardware hands out <strong>thread blocks to SMs</strong>. A block runs entirely on one SM and never moves. An SM can host several blocks at once if it has enough registers, shared memory and warp slots. More SMs therefore means more blocks running at once. This is why code with many blocks automatically gets faster on bigger GPUs.</p>
+  <div class="tbl"><table>
+    <tr><th>GPU</th><th>Architecture (compute cap.)</th><th>SMs</th><th>FP32 cores / SM</th><th>Total FP32 cores</th><th>Max warps / SM</th><th>Memory bandwidth</th></tr>
+    <tr><td>Tesla T4 (Colab)</td><td>Turing (7.5)</td><td class="num">40</td><td class="num">64</td><td class="num">2,560</td><td class="num">32</td><td class="num">320 GB/s (GDDR6)</td></tr>
+    <tr><td>A100</td><td>Ampere (8.0)</td><td class="num">108</td><td class="num">64</td><td class="num">6,912</td><td class="num">64</td><td class="num">1.6–2 TB/s (HBM2e)</td></tr>
+    <tr><td>H100 SXM</td><td>Hopper (9.0)</td><td class="num">132</td><td class="num">128</td><td class="num">16,896</td><td class="num">64</td><td class="num">3.35 TB/s (HBM3)</td></tr>
+  </table></div>
+  <p>The <strong>compute capability</strong> (7.5, 9.0) identifies the instruction set. It is what you pass to the compiler: <code>nvcc -arch=sm_75</code> for a T4, <code>-arch=sm_90</code> for an H100. Compiling for the wrong one gives "no kernel image is available" errors, or silently runs nothing if you don't check errors.</p>
+
+  <h3>3.2 The memory hierarchy</h3>
+  <p>The closer memory is to the cores, the faster and smaller it is, and the fewer threads can see it. Every performance technique in this course is about keeping data in the faster levels.</p>
+  <div class="tbl"><table>
+    <tr><th>Level</th><th>Who can see it</th><th>Size</th><th>Approx. latency</th><th>How you use it</th></tr>
+    <tr><td>Registers</td><td>One thread</td><td class="num">≤ 255 per thread</td><td class="num">~1 cycle</td><td>Local scalar variables (automatic).</td></tr>
+    <tr><td>Shared memory</td><td>All threads of one block</td><td class="num">tens of KB per SM</td><td class="num">~20–30 cycles</td><td><code>__shared__</code> arrays (tiling, later lectures).</td></tr>
+    <tr><td>L1 cache</td><td>One SM</td><td class="num">shares space with shared mem</td><td class="num">~30 cycles</td><td>Automatic.</td></tr>
+    <tr><td>L2 cache</td><td>Whole GPU</td><td class="num">4 MB (T4) – 50 MB (H100)</td><td class="num">~200 cycles</td><td>Automatic.</td></tr>
+    <tr><td>Global memory</td><td>All threads + host via copies</td><td class="num">16–80 GB</td><td class="num">~400–800 cycles</td><td><code>cudaMalloc</code>.</td></tr>
+    <tr><td>Host RAM</td><td>CPU</td><td class="num">many GB</td><td class="num">microseconds via PCIe</td><td><code>cudaMemcpy</code>.</td></tr>
+  </table></div>
+  <div class="key pit"><strong>Register pressure.</strong> The 65,536 registers are shared by all resident threads. If your kernel uses 64 registers per thread, an SM fits at most 65,536 / 64 = 1,024 threads. With 128 registers per thread, only 512. Fewer resident threads means fewer warps to hide latency with. This trade-off reappears in Module 8.</div>
+
+  <h3>3.3 MIG on the school cluster</h3>
+  <p>The cluster's H100s are partitioned with <strong>Multi-Instance GPU (MIG)</strong>: one physical card is split into isolated slices, each with its own SMs, memory and L2 share. You get a slice (for example 16 SMs and around 10 GB), not 132 SMs. Run <code>nvidia-smi</code> to see what you got, and compare cluster results fairly: a MIG slice can be slower than a full T4 for some kernels.</p>
+
+  <div class="worked">
+    <div class="lbl">Worked example</div>
+    <p><strong>Problem.</strong> Compute the T4's peak FP32 throughput and memory bandwidth from its specs: 2,560 cores at a boost clock of 1.59 GHz, 256-bit memory bus, GDDR6 at an effective 10 Gbit/s per pin.</p>
+    <ol class="steps">
+      <li>Each core can do one fused multiply-add (FMA) per cycle, which counts as 2 FLOPs.</li>
+      <li>Peak FP32 = 2,560 × 2 × 1.59×10⁹ ≈ 8.1×10¹² FLOP/s = 8.1 TFLOP/s.</li>
+      <li>Bandwidth = bus width × data rate = 256 bits × 10×10⁹ /s = 2.56×10¹² bits/s ÷ 8 = 320 GB/s.</li>
+      <li>Ratio: 8.1×10¹² / 320×10⁹ ≈ 25 FLOPs per byte. A kernel must do about 25 operations per byte it reads to be limited by compute rather than memory. You'll use this number in Module 4.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>How many FP32 cores does an H100 SXM have, and how do you get the number?</summary><div class="ans"><p>132 SMs × 128 FP32 cores per SM = 16,896.</p></div></details>
+  <details><summary><span class="lv">Recall</span>Which memory level is shared by all threads of one block, and only those?</summary><div class="ans"><p>Shared memory.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Two threads in different blocks need to exchange data. Can they use shared memory? What can they use?</summary><div class="ans"><p>No: shared memory is private to one block (blocks may even be on different SMs). They must go through global memory, and safely only across kernel launches or using atomic operations, because there's no guarantee about when another block runs.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does a program with many blocks run faster on an H100 than a T4 without code changes?</summary><div class="ans"><p>Blocks are independent and distributed to SMs by the hardware. The H100 has 132 SMs with more cores each, so more blocks run at once. Code that assumes nothing about how many blocks run simultaneously scales automatically.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A kernel uses 96 registers per thread with blocks of 256 threads. How many blocks fit on one SM by registers alone?</summary><div class="ans"><p>Registers per block = 96 × 256 = 24,576. 65,536 / 24,576 = 2.67, so 2 blocks (512 threads = 16 warps). On a T4 (max 32 warps) that caps occupancy at 50%.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Your code works on Colab but prints garbage on the cluster. You compiled with <code>-arch=sm_75</code>. What's going on?</summary><div class="ans"><p>The H100 is sm_90. Without a compatible binary or embedded PTX the kernel fails to launch, and without error checks you just read uninitialized output. Compile with <code>-arch=sm_90</code> and always check <code>cudaGetLastError()</code>.</p></div></details>
+
+  <div class="lab"><h4>Lab: query your GPU and derive its peaks</h4>
+    <ol>
+      <li>Extend the Tutorial 1 device-query program to print: name, compute capability, SM count, <code>warpSize</code>, <code>maxThreadsPerBlock</code>, <code>maxThreadsPerMultiProcessor</code>, <code>regsPerMultiprocessor</code>, <code>sharedMemPerMultiprocessor</code>, <code>l2CacheSize</code> and <code>totalGlobalMem</code>.</li>
+      <li>Predict the values for a T4 using the tables above before you run it.</li>
+      <li>Run it on Colab, and on the cluster when you have access.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+<pre><code>#include &lt;cstdio&gt;
+#include &lt;cuda_runtime.h&gt;
+int main() {
+  cudaDeviceProp p; cudaGetDeviceProperties(&amp;p, 0);
+  printf("%s  cc %d.%d\n", p.name, p.major, p.minor);
+  printf("SMs %d  warp %d  maxThr/block %d  maxThr/SM %d\n",
+         p.multiProcessorCount, p.warpSize, p.maxThreadsPerBlock, p.maxThreadsPerMultiProcessor);
+  printf("regs/SM %d  smem/SM %zu KB  L2 %d MB  mem %.1f GB\n",
+         p.regsPerMultiprocessor, p.sharedMemPerMultiprocessor/1024,
+         p.l2CacheSize/(1024*1024), p.totalGlobalMem/1e9);
+}</code></pre>
+      <p><strong>Expected on a T4:</strong> <code>Tesla T4 cc 7.5</code>, 40 SMs, warp 32, 1024 threads/block, 1024 threads/SM (= 32 warps), 65536 regs/SM, 64 KB shared/SM, 4 MB L2, about 15.6 GB memory.</p>
+      <p>Some fields (like <code>memoryClockRate</code>) are deprecated in CUDA 13 and may not compile, which is why the solution avoids them.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c3"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 4 ================= -->
+<section class="mod" id="m4" data-title="Performance limits">
+  <div class="eyebrow">Module 4 · Lecture 1 · Book §1.2–1.4</div>
+  <h2>How fast can it possibly go?</h2>
+  <p class="goal">Two back-of-the-envelope tools that predict performance before you write any code.</p>
+  <ul class="goals"><li>After this module you can: apply Amdahl's law, compute arithmetic intensity for a kernel, decide whether it is memory- or compute-bound, and estimate its best possible runtime.</li></ul>
+
+  <h3>4.1 Amdahl's law: the serial part limits you</h3>
+  <p>Split a program's original runtime into a fraction <code>s</code> that stays serial and a fraction <code>1 − s</code> that you speed up by a factor <code>p</code>. The new runtime is <code>s + (1 − s)/p</code> of the original, so:</p>
+  <div class="formula">speedup = 1 / ( s + (1 − s) / p )        and as p → ∞,   speedup → 1 / s</div>
+  <p>The serial part never gets faster, so eventually it is all that is left. With 10% serial code, an infinitely fast GPU gives at most 10×. With 1%, at most 100×.</p>
+  <div class="tbl"><table>
+    <tr><th>Serial fraction s</th><th>p = 10</th><th>p = 100</th><th>p = 1000</th><th>Limit (1/s)</th></tr>
+    <tr><td class="num">0.50</td><td class="num">1.8×</td><td class="num">2.0×</td><td class="num">2.0×</td><td class="num">2×</td></tr>
+    <tr><td class="num">0.10</td><td class="num">5.3×</td><td class="num">9.2×</td><td class="num">9.9×</td><td class="num">10×</td></tr>
+    <tr><td class="num">0.01</td><td class="num">9.2×</td><td class="num">50×</td><td class="num">91×</td><td class="num">100×</td></tr>
+  </table></div>
+  <p>On a GPU, host↔device copies behave like serial time, since the GPU computes nothing useful during them unless you overlap them (streams, a later lecture).</p>
+
+  <h3>4.2 Two ceilings: compute and memory</h3>
+  <p>A kernel is limited by whichever runs out first:</p>
+  <ul>
+    <li><strong>Compute ceiling:</strong> the GPU can't do more than its peak FLOP/s (8.1 TFLOP/s FP32 on a T4).</li>
+    <li><strong>Memory ceiling:</strong> it can't move more than its peak bandwidth (320 GB/s on a T4).</li>
+  </ul>
+  <p>Which one you hit depends on the kernel's <strong>arithmetic intensity</strong>:</p>
+  <div class="formula">AI = floating-point operations ÷ bytes moved to/from global memory   (FLOP/byte)</div>
+  <p>The time can't be less than either bound, so a good estimate of the best possible time is:</p>
+  <div class="formula">t_min = max( FLOPs / peak_FLOPs ,  bytes / peak_bandwidth )</div>
+  <p>The crossover is the <strong>machine balance</strong> = peak FLOP/s ÷ peak bandwidth (≈ 25 FLOP/byte on a T4, from Module 3). Kernels with AI below it are <strong>memory-bound</strong>: only moving fewer bytes helps. Above it they are <strong>compute-bound</strong>: only doing fewer or faster operations helps. Plotting attainable FLOP/s against AI gives the <strong>roofline model</strong>, which Nsight Compute can draw for your kernels.</p>
+  <div class="svgbox">
+  <svg viewBox="0 0 560 230" role="img" aria-label="Roofline: performance rises with arithmetic intensity until the machine balance point, then flattens at peak compute">
+    <line x1="60" y1="190" x2="540" y2="190" stroke="var(--muted)"/><line x1="60" y1="190" x2="60" y2="20" stroke="var(--muted)"/>
+    <polyline points="60,190 300,40 540,40" fill="none" stroke="var(--accent)" stroke-width="3"/>
+    <line x1="300" y1="40" x2="300" y2="190" stroke="var(--line)" stroke-dasharray="4 4"/>
+    <text x="270" y="206">≈25</text><text x="380" y="222" class="mut">arithmetic intensity (FLOP/byte) →</text>
+    <text x="330" y="32">compute ceiling 8.1 TFLOP/s</text>
+    <text x="80" y="110" transform="rotate(-32 80 110)">memory ceiling 320 GB/s</text>
+    <circle cx="80" cy="178" r="5" fill="var(--warn)"/><text x="92" y="170">vector add</text>
+    <circle cx="420" cy="40" r="5" fill="var(--warn)"/><text x="400" y="62">tiled matmul</text>
+    <text x="4" y="30" class="mut">FLOP/s</text>
+  </svg></div>
+
+  <div class="worked">
+    <div class="lbl">Worked example</div>
+    <p><strong>Problem.</strong> Vector add on N = 2²⁴ (16.8 million) floats on a T4. Compute the arithmetic intensity and the minimum possible kernel time.</p>
+    <ol class="steps">
+      <li>FLOPs: one addition per element, so N = 1.68×10⁷.</li>
+      <li>Bytes: read a[i] and b[i], write c[i], 4 bytes each, so 12N = 2.01×10⁸ bytes.</li>
+      <li>AI = N / 12N = 1/12 ≈ 0.083 FLOP/byte. That is 300× below the balance point of 25, so it is very memory-bound.</li>
+      <li>Compute bound: 1.68×10⁷ / 8.1×10¹² ≈ 2 µs. Memory bound: 2.01×10⁸ / 3.2×10¹¹ ≈ 630 µs.</li>
+      <li>t_min = max(2 µs, 630 µs) = 630 µs. In practice you'll measure 700–800 µs, since the GPU reaches about 80–90% of peak bandwidth.</li>
+    </ol>
+    <p><strong>Lesson.</strong> For memory-bound kernels, compute speed is irrelevant: the 8 TFLOP/s are idle 99.7% of the time. This is why vector add shows the copy times dominating in your Assignment 1 chart.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>State Amdahl's law and its limit.</summary><div class="ans"><p>speedup = 1 / (s + (1−s)/p), and as p → ∞ the speedup approaches 1/s.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does making the arithmetic faster not help a memory-bound kernel?</summary><div class="ans"><p>Its time is set by how fast data arrives. The arithmetic units already wait for data most of the time; making them faster only makes them wait longer. You must reduce the bytes moved (reuse data in shared memory or registers, use smaller types) instead.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A program spends 20% of its time in code you can't parallelize. With a 50× faster parallel part, what overall speedup do you get? What's the limit?</summary><div class="ans"><p>1 / (0.2 + 0.8/50) = 1 / 0.216 ≈ 4.6×. The limit is 1/0.2 = 5×.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>SAXPY computes <code>y[i] = a*x[i] + y[i]</code> in float. What is its arithmetic intensity, and is it memory- or compute-bound on a T4?</summary><div class="ans"><p>2 FLOPs (multiply and add) per element. Bytes: read x and y, write y, so 12 bytes. AI = 2/12 ≈ 0.17, far below 25, so memory-bound.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Naive n×n matmul (float) reads 2n per output element from global memory and does 2n FLOPs. Ideal matmul reads each input once. Compare their AI for n = 1024.</summary><div class="ans"><p>Naive: 2n FLOPs per 2n × 4 bytes = 0.25 FLOP/byte, memory-bound. Ideal: 2n³ FLOPs per 3n² × 4 bytes (read A and B, write C) = n/6 ≈ 171 FLOP/byte for n = 1024, compute-bound. Data reuse is worth almost 700× in AI, which is why tiling (a later lecture) matters.</p></div></details>
+  <label class="check"><input type="checkbox" id="c4"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 5 ================= -->
+<section class="mod" id="m5" data-title="CUDA workflow">
+  <div class="eyebrow">Module 5 · Lecture 2.1, 2.2.1</div>
+  <h2>The CUDA workflow and moving data</h2>
+  <p class="goal">The skeleton every CUDA program follows, and what each call really does.</p>
+  <ul class="goals"><li>After this module you can: use the three function qualifiers correctly, write the allocate → copy → launch → copy → free sequence, add error checking, and explain which calls are synchronous.</li></ul>
+
+  <h3>5.1 Three questions</h3>
+  <p>Every CUDA program must answer three questions:</p>
+  <ol>
+    <li><strong>Where does each function run?</strong> CPU or GPU, set by qualifiers.</li>
+    <li><strong>Where does each piece of data live?</strong> Host memory or device memory, set by how you allocate it.</li>
+    <li><strong>What does each thread do?</strong> Determined by the thread's index (Module 6).</li>
+  </ol>
+
+  <h3>5.2 Function qualifiers</h3>
+  <div class="tbl"><table>
+    <tr><th>Qualifier</th><th>Runs on</th><th>Called from</th><th>Rules</th></tr>
+    <tr><td><code>__global__</code></td><td>GPU</td><td>CPU</td><td>A <strong>kernel</strong>. Must return <code>void</code>. Launched with <code>name&lt;&lt;&lt;grid, block&gt;&gt;&gt;(args)</code>. Arguments are copied by value to the GPU.</td></tr>
+    <tr><td><code>__device__</code></td><td>GPU</td><td>GPU</td><td>Helper functions called from kernels, e.g. <code>scale()</code> and <code>distance()</code>. Can return values.</td></tr>
+    <tr><td><code>__host__</code></td><td>CPU</td><td>CPU</td><td>The default for normal functions.</td></tr>
+    <tr><td><code>__host__ __device__</code></td><td>Both</td><td>Both</td><td>Compiled twice. Useful for helpers shared by a CPU reference and the GPU kernel.</td></tr>
+  </table></div>
+
+  <h3>5.3 Two separate memories</h3>
+  <p>The CPU and GPU have separate address spaces. A pointer returned by <code>malloc</code> points to host memory; one from <code>cudaMalloc</code> points to device memory. They're both just <code>float*</code> to the compiler, so mixing them up compiles fine and fails at runtime. That's why everyone uses the naming convention <code>h_</code> for host and <code>d_</code> for device.</p>
+  <ul>
+    <li>Dereferencing a device pointer on the CPU (<code>d_out[0]</code> in <code>main</code>) usually crashes with a segmentation fault.</li>
+    <li>Passing a host pointer to a kernel gives an "illegal memory access" error when the kernel runs.</li>
+  </ul>
+
+  <h3>5.4 The five steps</h3>
+<pre><code>// 1. allocate on the GPU
+float *d_a, *d_c;
+cudaMalloc(&amp;d_a, bytes);              // note: address of the pointer
+cudaMalloc(&amp;d_c, bytes);
+
+// 2. copy inputs host → device       (dst, src, size, direction)
+cudaMemcpy(d_a, h_a, bytes, cudaMemcpyHostToDevice);
+
+// 3. launch the kernel (returns immediately!)
+myKernel&lt;&lt;&lt;blocks, threads&gt;&gt;&gt;(d_a, d_c, n);
+
+// 4. copy results device → host (waits for the kernel to finish first)
+cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost);
+
+// 5. free
+cudaFree(d_a); cudaFree(d_c);</code></pre>
+  <p><code>cudaMalloc</code> takes <code>&amp;d_a</code> (a pointer to your pointer) because it needs to <em>write</em> the device address into your variable. Its return value is reserved for an error code.</p>
+
+  <h3>5.5 Synchronous or asynchronous?</h3>
+  <p>The GPU has a work queue called a <strong>stream</strong>. The CPU puts operations in it, and the GPU does them in order.</p>
+  <ul>
+    <li><strong>Kernel launches are asynchronous:</strong> the CPU queues the kernel and continues immediately, often before the kernel even starts.</li>
+    <li><strong><code>cudaMemcpy</code> is synchronous:</strong> it waits until everything before it in the stream is finished, then does the copy, then returns. So step 4 above automatically waits for the kernel.</li>
+    <li><strong><code>cudaDeviceSynchronize()</code></strong> blocks the CPU until all queued GPU work is done. You need it when nothing else waits: before stopping a timer, before checking for kernel errors, and before exiting if the kernel uses <code>printf</code>.</li>
+  </ul>
+  <div class="key pit"><strong>The <code>kernel.cu</code> bug.</strong> The lecture's <code>kernel.cu</code> launches a kernel that prints, then calls <code>cudaFree</code> and returns. Nothing waits for the kernel, so the program can exit before the GPU's print buffer is flushed and you see no output. Adding <code>cudaDeviceSynchronize();</code> after the launch fixes it.</div>
+
+  <h3>5.6 Error checking</h3>
+  <p>Every CUDA API call returns a <code>cudaError_t</code>. If you ignore it, failures are silent and you debug garbage output for hours. Wrap every call:</p>
+<pre><code>#define CHECK(call) do {                                         \
+    cudaError_t err = (call);                                    \
+    if (err != cudaSuccess) {                                    \
+        fprintf(stderr, "CUDA error %s at %s:%d\n",              \
+                cudaGetErrorString(err), __FILE__, __LINE__);    \
+        exit(1);                                                 \
+    } } while (0)
+
+CHECK(cudaMalloc(&amp;d_a, bytes));
+myKernel&lt;&lt;&lt;g, b&gt;&gt;&gt;(…);
+CHECK(cudaGetLastError());        // catches bad launch configurations
+CHECK(cudaDeviceSynchronize());   // catches errors during kernel execution</code></pre>
+  <p>Kernel launches return nothing, so there are two checks: <code>cudaGetLastError()</code> right after the launch catches configuration errors (too many threads per block), and the synchronize catches errors while the kernel ran (out-of-bounds accesses).</p>
+  <div class="key"><strong>Context creation.</strong> The first CUDA call in a program sets up the GPU context, which takes 100–200 ms. In the Lecture 2 profiles that is why <code>cudaMalloc</code> takes 99.9% of API time. Call <code>cudaFree(0)</code> once at the start to pay this cost before you start timing.</div>
+
+  <div class="worked">
+    <div class="lbl">Worked example: find the bugs</div>
+<pre><code>int main() {
+  float h_x[1000000];                                     // A
+  float *d_x;
+  cudaMalloc(d_x, 1000000 * sizeof(float));               // B
+  cudaMemcpy(h_x, d_x, 1000000*sizeof(float), cudaMemcpyHostToDevice);  // C
+  square&lt;&lt;&lt;1000000/256, 256&gt;&gt;&gt;(d_x);                       // D
+  printf("%f\n", d_x[0]);                                 // E
+}</code></pre>
+    <ol class="steps">
+      <li><strong>A:</strong> 4 MB on the stack can overflow it (the default is often 8 MB, sometimes less). Use <code>malloc</code>.</li>
+      <li><strong>B:</strong> it should be <code>cudaMalloc(&amp;d_x, …)</code>. Passing the pointer's value means <code>cudaMalloc</code> can't set it. (The compiler catches this one since the argument type is wrong.)</li>
+      <li><strong>C:</strong> the arguments are swapped. It is <code>(dst, src)</code>, so it should be <code>cudaMemcpy(d_x, h_x, …)</code>.</li>
+      <li><strong>D:</strong> 1,000,000 / 256 = 3906 blocks covers 999,936 elements, so the last 64 are skipped. Round up and add a bounds check in the kernel.</li>
+      <li><strong>E:</strong> it dereferences a device pointer on the host. Copy back to a host buffer first. There is also no <code>cudaFree</code> and no error checking.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Which qualifier marks a function that the CPU calls and the GPU runs? What must it return?</summary><div class="ans"><p><code>__global__</code>, and it must return <code>void</code>.</p></div></details>
+  <details><summary><span class="lv">Recall</span>What is the argument order of <code>cudaMemcpy</code>?</summary><div class="ans"><p>Destination, source, number of bytes, direction (e.g. <code>cudaMemcpyHostToDevice</code>).</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does the program in Lecture 2 work without <code>cudaDeviceSynchronize()</code>, while <code>kernel.cu</code> doesn't?</summary><div class="ans"><p>In <code>2-first-cuda-code.cu</code> the <code>cudaMemcpy</code> back to the host waits for the kernel. <code>kernel.cu</code> has no copy back, so nothing waits and the program may exit before the kernel's printf output appears.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why do you need both <code>cudaGetLastError()</code> and <code>cudaDeviceSynchronize()</code> to check a kernel?</summary><div class="ans"><p>The launch is asynchronous. <code>cudaGetLastError()</code> reports errors detected when queuing (an invalid configuration); errors that happen while the kernel runs only surface after it finishes, which is what synchronizing waits for.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>You time a kernel with a CPU timer around the launch line only, and always get about 5 µs no matter the size. What's wrong?</summary><div class="ans"><p>You only timed queuing the launch. Add <code>cudaDeviceSynchronize()</code> before stopping the timer (or use CUDA events / nsys).</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Write a <code>__host__ __device__</code> helper and say why it's useful for Assignment 1.</summary><div class="ans"><p><code>__host__ __device__ float add(float a, float b) { return a + b; }</code>. The CPU reference and the GPU kernel then share the same code, so any mismatch comes from the hardware, not from two different implementations.</p></div></details>
+  <label class="check"><input type="checkbox" id="c5"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 6 ================= -->
+<section class="mod" id="m6" data-title="Launching & indexing">
+  <div class="eyebrow">Module 6 · Lecture 2.2.2, 2.2.3</div>
+  <h2>Launching kernels and finding your thread</h2>
+  <p class="goal">How a launch creates threads, and how each thread works out which data is its own.</p>
+  <ul class="goals"><li>After this module you can: describe the grid/block/thread hierarchy, compute global indices in 1D and 2D, size grids for any problem, respect hardware limits, and use vector types.</li></ul>
+
+  <h3>6.1 The thread hierarchy</h3>
+  <p>A launch <code>kernel&lt;&lt;&lt;G, B&gt;&gt;&gt;</code> creates a <strong>grid</strong> of G <strong>blocks</strong>, each with B <strong>threads</strong>: G × B threads in total, all running the same kernel code. Why two levels instead of one flat list of threads?</p>
+  <ul>
+    <li><strong>Blocks are independent</strong> and can run in any order on any SM. This is what lets the same code scale from 40 SMs to 132.</li>
+    <li><strong>Threads within a block can cooperate:</strong> they run on the same SM, can share <code>__shared__</code> memory and can synchronize with <code>__syncthreads()</code>. Threads in different blocks can't.</li>
+  </ul>
+  <p>Inside the kernel, each thread reads four built-in variables (each has <code>.x .y .z</code>):</p>
+  <div class="tbl"><table>
+    <tr><th>Variable</th><th>Meaning</th><th>Range</th></tr>
+    <tr><td><code>threadIdx</code></td><td>Thread's position within its block</td><td>0 … blockDim − 1</td></tr>
+    <tr><td><code>blockIdx</code></td><td>Block's position within the grid</td><td>0 … gridDim − 1</td></tr>
+    <tr><td><code>blockDim</code></td><td>Threads per block (same for all blocks)</td><td>set at launch</td></tr>
+    <tr><td><code>gridDim</code></td><td>Blocks in the grid</td><td>set at launch</td></tr>
+  </table></div>
+
+  <h3>6.2 The 1D global index</h3>
+  <p>Think of blocks as rows of seats in a cinema. Your seat number in the whole cinema is (row × seats per row) + your seat in the row:</p>
+  <div class="formula">int i = blockIdx.x * blockDim.x + threadIdx.x;</div>
+  <div class="svgbox">
+  <svg viewBox="0 0 620 110" role="img" aria-label="Three blocks of four threads; global index = block * 4 + thread">
+    <g id="idxgrid"></g>
+    <text x="10" y="102" class="mut">blockDim.x = 4.  Thread 2 of block 1 → i = 1·4 + 2 = 6</text>
+  </svg></div>
+
+  <h3>6.3 Sizing the grid: round up, then guard</h3>
+  <p>N is rarely a multiple of the block size. Integer division rounds down, so <code>N / TPB</code> blocks would leave the tail unprocessed. Always round up, and then make the extra threads in the last block do nothing:</p>
+<pre><code>__global__ void vecAdd(const float *a, const float *b, float *c, int n) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i &gt;= n) return;              // guard: the last block may have spare threads
+  c[i] = a[i] + b[i];
+}
+int TPB = 256;
+int blocks = (n + TPB - 1) / TPB;   // ceiling division
+vecAdd&lt;&lt;&lt;blocks, TPB&gt;&gt;&gt;(d_a, d_b, d_c, n);</code></pre>
+  <p>Why does <code>(n + TPB − 1) / TPB</code> round up? Adding TPB − 1 pushes any remainder over the next multiple. For n = 1000, TPB = 256: (1000 + 255)/256 = 1255/256 = 4, while 1000/256 = 3.</p>
+  <p><strong>Choosing TPB:</strong> use a multiple of 32 (Module 2), usually 128 or 256. Too small (32) and you hit the per-SM block limit before filling the warp slots; 1024 leaves less flexibility for the scheduler. 256 is a good default.</p>
+
+  <h3>6.4 Hardware limits</h3>
+  <ul>
+    <li>At most <strong>1024 threads per block</strong> in total (x·y·z ≤ 1024). A block of (32, 32) is allowed; (64, 32) is not.</li>
+    <li>Grid size: x up to 2³¹ − 1 blocks, y and z up to 65,535.</li>
+    <li>Exceeding a limit doesn't crash. The launch silently fails with "invalid configuration argument", which you only see by checking <code>cudaGetLastError()</code>.</li>
+  </ul>
+
+  <h3>6.5 2D grids for 2D data</h3>
+  <p>For matrices and images, use 2D blocks and grids with the <code>dim3</code> type. Map <strong>x to columns</strong> and <strong>y to rows</strong>:</p>
+<pre><code>__global__ void scale2D(float *m, int W, int H, float s) {
+  int c = blockIdx.x * blockDim.x + threadIdx.x;   // column  0..W-1
+  int r = blockIdx.y * blockDim.y + threadIdx.y;   // row     0..H-1
+  if (c &gt;= W || r &gt;= H) return;                    // guard BOTH dimensions
+  m[r * W + c] *= s;                                // row-major: row × width + column
+}
+dim3 block(16, 16);                                 // 256 threads
+dim3 grid((W + 15) / 16, (H + 15) / 16);            // round up each dimension
+scale2D&lt;&lt;&lt;grid, block&gt;&gt;&gt;(d_m, W, H, 2.0f);</code></pre>
+  <p><strong>Why x → column?</strong> Threads in a warp are numbered x first: threads (0,0), (1,0), (2,0) … are consecutive lanes. With x as the column, the 32 lanes of a warp access 32 adjacent floats, which the hardware combines into a few large memory transactions. This is <strong>coalescing</strong>. Swapping x and y makes the lanes access addresses W floats apart, which can be many times slower.</p>
+
+  <h3>6.6 Vector types</h3>
+  <p>CUDA provides small structs such as <code>int2, int3, float2, float3, float4, double2</code> with fields <code>.x .y .z .w</code>. Build them with <code>make_float3(a, b, c)</code>. <code>dim3</code> is a vector of unsigned ints where unspecified fields default to 1, so <code>dim3 b(256)</code> means (256, 1, 1). <code>float4</code> is aligned to 16 bytes and can be loaded in one instruction, a common trick in memory-bound kernels.</p>
+  <div class="key pit"><strong>Slide 23 typo.</strong> The slide swaps the descriptions. <strong>BPG = blocks per grid</strong> and <strong>TPB = threads per block</strong>, launched as <code>&lt;&lt;&lt;BPG, TPB&gt;&gt;&gt;</code>.</div>
+
+  <div class="worked">
+    <div class="lbl">Worked example</div>
+    <p><strong>Problem.</strong> Multiply A (1024 × 8191) by B (8191 × 8197) with 16×16 blocks, one thread per element of C (1024 × 8197). Size the grid and count the threads.</p>
+    <ol class="steps">
+      <li>C has M = 1024 rows and P = 8197 columns. x → columns, y → rows.</li>
+      <li>grid.x = ⌈8197 / 16⌉ = ⌈512.3⌉ = 513. grid.y = ⌈1024 / 16⌉ = 64.</li>
+      <li>Blocks = 513 × 64 = 32,832. Threads = 32,832 × 256 = 8,404,992.</li>
+      <li>Useful threads = M × P = 1024 × 8197 = 8,393,728. The difference, 11,264, are threads in the last column of blocks whose column ≥ 8197. They exit at the guard: 8197 = 512·16 + 5, so 11 of the 16 columns in each of those 64 × 16 = 1,024 rows are idle, and 11 × 1,024 = 11,264. ✓</li>
+    </ol>
+    <p>This is exactly Assignment 1 Q2, part 3. Being able to reproduce the derivation is more important than the number.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>What is the maximum number of threads per block?</summary><div class="ans"><p>1024 in total, across all three dimensions.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does CUDA have blocks at all, rather than one flat array of threads?</summary><div class="ans"><p>Blocks are the unit the hardware places on SMs. Independence between blocks lets the same code run on any number of SMs, while threads within a block can cooperate through shared memory and <code>__syncthreads()</code>.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why should x map to the column index of a row-major matrix?</summary><div class="ans"><p>Consecutive lanes of a warp differ in threadIdx.x. If x is the column, they access consecutive addresses, so the loads coalesce into a few wide transactions. If x is the row, each lane is W elements apart and needs its own transaction.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>N = 263,149 and TPB = 256. How many blocks, threads launched, and idle threads?</summary><div class="ans"><p>⌈263149/256⌉ = 1028 blocks, 1028 × 256 = 263,168 threads, and 263,168 − 263,149 = 19 idle threads.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>An image is 1000 × 600 (W × H) with 16×16 blocks. Give the grid and the number of idle threads.</summary><div class="ans"><p><code>dim3 grid(63, 38)</code>, since ⌈1000/16⌉ = 63 and ⌈600/16⌉ = 38. Threads = 63·38·256 = 612,864, so 612,864 − 600,000 = 12,864 are idle.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>What happens with <code>&lt;&lt;&lt;1, 2048&gt;&gt;&gt;</code>? How would you notice?</summary><div class="ans"><p>2048 &gt; 1024, so the launch fails and the kernel never runs. Nothing crashes; <code>cudaGetLastError()</code> returns "invalid configuration argument", and otherwise you just get uninitialized output.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>In a 2D kernel someone wrote <code>idx = c * H + r</code>. What does that compute, and is it a bug?</summary><div class="ans"><p>That is column-major indexing. It's only correct if the matrix is stored column-major (as in Fortran or cuBLAS). For a row-major C array it reads the wrong elements, and even when correct it makes warp accesses strided, so it's slower.</p></div></details>
+
+  <div class="lab"><h4>Lab: map threads to data</h4>
+    <ol>
+      <li>Run <code>cuda_demo.cu</code> with N = 16 and 8 threads per block. Note that block 1 may print before block 0.</li>
+      <li>Change N to 20 and keep 8 threads per block. Predict: how many blocks, and which global indices exist but skip the work?</li>
+      <li>Write a 2D kernel that prints <code>(r, c, idx)</code> for a 5 (rows) × 7 (columns) matrix with 4×4 blocks. Predict the grid first.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p><strong>Step 2:</strong> ⌈20/8⌉ = 3 blocks = 24 threads. Indices 20–23 (block 2, threads 4–7) fail <code>if (i &lt; n)</code> and print nothing. The printed results stop at index 19.</p>
+<pre><code>__global__ void show(int W, int H) {
+  int c = blockIdx.x * blockDim.x + threadIdx.x;
+  int r = blockIdx.y * blockDim.y + threadIdx.y;
+  if (c &gt;= W || r &gt;= H) return;
+  printf("block(%d,%d) thread(%d,%d) -&gt; r=%d c=%d idx=%d\n",
+         blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, r, c, r * W + c);
+}
+int main() {
+  int W = 7, H = 5;
+  dim3 block(4, 4), grid((W + 3) / 4, (H + 3) / 4);   // grid = (2, 2)
+  show&lt;&lt;&lt;grid, block&gt;&gt;&gt;(W, H);
+  cudaDeviceSynchronize();
+}</code></pre>
+      <p><strong>Step 3:</strong> grid = (2, 2) = 4 blocks × 16 = 64 threads. Exactly 35 lines print (5 × 7), idx from 0 to 34, in no particular block order. Block (1,1) prints only 3 × 1 = 3 lines: columns 4–6 of row 4.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c6"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 7 ================= -->
+<section class="mod" id="m7" data-title="First CUDA program">
+  <div class="eyebrow">Module 7 · Lecture 2.3</div>
+  <h2>Walkthrough: the distance kernel</h2>
+  <p class="goal">Read a complete CUDA program line by line, then find what's wrong with it.</p>
+  <ul class="goals"><li>After this module you can: explain every line of the lecture's first program, predict its output, find its latent bugs, and explain why GPU and CPU floating-point results can differ.</li></ul>
+
+  <h3>7.1 What it computes</h3>
+  <p>For N = 64 points evenly spaced on [0, 1], <code>x_i = i/(N − 1)</code>, compute the distance to a reference point <code>ref = 0.5</code>: <code>|x_i − 0.5|</code>. One thread per point.</p>
+<pre><code>#define N 64
+#define TPB 32
+
+__device__ float scale(int i, int n) {          // GPU helper: index → position in [0,1]
+  return ((float)i) / (n - 1);
+}
+__device__ float distance(float x1, float x2) {  // GPU helper: |x2 - x1| written as sqrt of square
+  return sqrt((x2 - x1) * (x2 - x1));
+}
+__global__ void distanceKernel(float *d_out, float ref, int len) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;   // which point am I?
+  const float x = scale(i, len);
+  d_out[i] = distance(x, ref);                            // write my result
+}
+
+int main() {
+  const float ref = 0.5f;
+  float *h_out = (float *)malloc(N * sizeof(float));     // host buffer for results
+  float *d_out = 0;
+  cudaMalloc(&amp;d_out, N * sizeof(float));                 // device buffer
+  distanceKernel&lt;&lt;&lt;N / TPB, TPB&gt;&gt;&gt;(d_out, ref, N);       // 2 blocks × 32 threads
+  cudaMemcpy(h_out, d_out, N * sizeof(float), cudaMemcpyDeviceToHost);  // waits for kernel
+  for (int i = 0; i &lt; N; i++) std::cout &lt;&lt; i &lt;&lt; " = " &lt;&lt; h_out[i] &lt;&lt; std::endl;
+  cudaFree(d_out); free(h_out);
+}</code></pre>
+  <p>Note what's <em>not</em> there: no input copy to the GPU. The kernel computes its inputs from its index, so only the output is copied back.</p>
+
+  <h3>7.2 The output</h3>
+  <p>The values go 0.5, 0.484, … down to 0.0079 at i = 31 and back up to 0.5 at i = 63, the V shape of |x − 0.5|. There's no exact zero because 0.5 lies between x₃₁ = 31/63 and x₃₂ = 32/63.</p>
+  <p>Look closely: <code>31 = 0.00793651</code> but <code>32 = 0.00793654</code>. Mathematically both are 1/126. They differ in the last digits because <code>32/63</code> and <code>31/63</code> round differently in 32-bit float, and those rounding errors are visible once you subtract 0.5 (subtracting nearly equal numbers amplifies relative error).</p>
+
+  <h3>7.3 Why floats differ between CPU and GPU</h3>
+  <p>A <code>float</code> stores about 7 significant decimal digits, so nearly every operation rounds. IEEE-754 guarantees that a <em>single</em> add, multiply, divide or sqrt is correctly rounded on both CPU and GPU. Results can still differ because:</p>
+  <ul>
+    <li><strong>FMA:</strong> the GPU compiler fuses <code>a*b + c</code> into one instruction with one rounding instead of two. More accurate, but different.</li>
+    <li><strong>Operation order:</strong> floating-point addition isn't associative: <code>(a + b) + c</code> can differ from <code>a + (b + c)</code>. Parallel reductions sum in a different order from a CPU loop.</li>
+    <li><strong>Fast math functions:</strong> with <code>--use_fast_math</code>, or with intrinsics like <code>__sinf</code>, results are approximate.</li>
+    <li><strong>CPU precision:</strong> the CPU compiler may keep intermediates in higher precision or vectorize differently.</li>
+  </ul>
+  <p>So validate GPU results with a tolerance: <code>fabs(gpu − cpu) &lt;= 1e-6 * fabs(cpu)</code> or similar, never with <code>==</code>.</p>
+
+  <div class="worked">
+    <div class="lbl">Worked example: change N and watch it break</div>
+    <p><strong>Problem.</strong> Set N = 100 and keep TPB = 32. What happens, and what is the correct fix?</p>
+    <ol class="steps">
+      <li>The launch is <code>&lt;&lt;&lt;100/32, 32&gt;&gt;&gt;</code> = <code>&lt;&lt;&lt;3, 32&gt;&gt;&gt;</code>, so 96 threads.</li>
+      <li>Elements 96–99 are never written. <code>cudaMalloc</code> doesn't zero memory, so <code>h_out[96..99]</code> contain whatever was there, possibly zeros, which makes the bug easy to miss.</li>
+      <li>Naive fix: launch ⌈100/32⌉ = 4 blocks = 128 threads. Now threads 100–127 write <code>d_out[100..127]</code>, past the end of the array. That's out-of-bounds memory corruption, which may or may not crash.</li>
+      <li>Correct fix: both changes together: <code>(N + TPB - 1) / TPB</code> blocks <em>and</em> <code>if (i &gt;= len) return;</code> as the kernel's first line after computing i.</li>
+    </ol>
+    <p>Run <code>compute-sanitizer ./demo</code> on the naive fix: it reports each invalid write, a useful tool for every assignment.</p>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Why doesn't the program copy anything host → device?</summary><div class="ans"><p>The kernel generates its own inputs from the thread index (via <code>scale</code>), and <code>ref</code> is passed by value as a kernel argument. Only results need to come back.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why don't we need <code>cudaDeviceSynchronize()</code> in this version?</summary><div class="ans"><p><code>cudaMemcpy</code> device → host is synchronous: it waits for the kernel to finish before copying.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is there no zero in the output even though ref = 0.5 is in [0, 1]?</summary><div class="ans"><p>The points are i/63, and 0.5 = 31.5/63 falls exactly between two of them. The closest points are 31/63 and 32/63, both 1/126 ≈ 0.0079 away.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Rewrite <code>distance</code> to be cheaper. Would the results change?</summary><div class="ans"><p><code>return fabsf(x2 - x1);</code> avoids a multiply and a sqrt. The results would be the same or differ only in the last bit, since sqrt of a square can round slightly differently from the exact absolute value.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>In Assignment 1 your CPU and GPU vector add results match exactly. Is that consistent with 7.3?</summary><div class="ans"><p>Yes. Each element is a single float addition, which IEEE-754 requires to be correctly rounded on both, with no ordering or FMA involved. Differences appear once there are chains of operations, like matmul's sum over k.</p></div></details>
+
+  <div class="lab"><h4>Lab: break it and catch it</h4>
+    <ol>
+      <li>Compile <code>2-first-cuda-code.cu</code> with N = 100, TPB = 32. Print the last 6 results.</li>
+      <li>Change the launch to 4 blocks but no guard, and run <code>compute-sanitizer ./demo</code>.</li>
+      <li>Add the guard and the rounded-up block count. Re-run the sanitizer.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p><strong>Step 1:</strong> indices 94 and 95 print correct values (≈ 0.449 and 0.460). 96–99 print garbage or 0, where they should be ≈ 0.470, 0.480, 0.490, 0.500.</p>
+      <p><strong>Step 2:</strong> the sanitizer reports <code>Invalid __global__ write of size 4</code> for threads 100–127 in block 3, giving the address and the line of <code>d_out[i] = …</code>.</p>
+      <p><strong>Step 3:</strong> <code>ERROR SUMMARY: 0 errors</code>, and index 99 prints 0.5.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c7"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 8 ================= -->
+<section class="mod" id="m8" data-title="Profiling & occupancy">
+  <div class="eyebrow">Module 8 · Colab Tutorial 1, Lecture 2 notebook</div>
+  <h2>Profiling: Nsight Systems, Nsight Compute and occupancy</h2>
+  <p class="goal">Measure instead of guessing, and know which tool answers which question.</p>
+  <ul class="goals"><li>After this module you can: choose between nsys and ncu, read their key tables, add NVTX ranges, time code correctly, and compute theoretical occupancy by hand.</li></ul>
+
+  <h3>8.1 Two tools, two questions</h3>
+  <div class="tbl"><table>
+    <tr><th>Tool</th><th>Question it answers</th><th>Commands</th></tr>
+    <tr><td><strong>Nsight Systems</strong> (<code>nsys</code>)</td><td>Where does my program's time go? A timeline of CPU calls, copies and kernels.</td><td><code>nsys profile --stats=true ./app</code><br><code>nsys nvprof ./app</code> (nvprof-style summary)</td></tr>
+    <tr><td><strong>Nsight Compute</strong> (<code>ncu</code>)</td><td>Why is <em>this kernel</em> slow? Occupancy, memory throughput, roofline, per-line stats.</td><td><code>ncu --section=Occupancy ./app</code><br><code>ncu --section=SpeedOfLight ./app</code><br><code>ncu --list-sections</code></td></tr>
+  </table></div>
+  <p>Rule of thumb: start with <strong>nsys</strong> to find the biggest cost. Only if it's a kernel do you dig in with <strong>ncu</strong>. ncu replays each kernel several times to collect counters (the "3 passes" in Tutorial 1), so it's slow and its timings aren't meaningful.</p>
+
+  <h3>8.2 Reading nsys output</h3>
+  <ul>
+    <li><strong><code>cuda_api_sum</code></strong>: CPU-side time in each CUDA call. Remember context creation inflates the first call (Module 5).</li>
+    <li><strong><code>cuda_gpu_kern_sum</code></strong>: GPU time per kernel: total, instances, average, min, max. You'll use this table for Assignment 1 Q3 (QuEST's top kernels).</li>
+    <li><strong><code>cuda_gpu_mem_time_sum</code> / <code>_size_sum</code></strong>: time and bytes per copy direction. Divide bytes by time to get your effective PCIe bandwidth.</li>
+  </ul>
+  <p>In Lecture 2's profile, the distance kernel took 2,464 ns and the copy back 1,920 ns, but <code>cudaMalloc</code> took 183 ms. Almost all of the program's time is start-up overhead, which tells you the problem is far too small for a GPU.</p>
+
+  <h3>8.3 NVTX: labelling your code</h3>
+<pre><code>#include &lt;nvtx3/nvToolsExt.h&gt;
+nvtxRangePushA("H2D copy");
+cudaMemcpy(d_a, h_a, bytes, cudaMemcpyHostToDevice);
+nvtxRangePop();</code></pre>
+  <p>Profile with <code>nsys profile --trace=cuda,nvtx --stats=true ./app</code>. The <code>nvtx_sum</code> table and the timeline then show your named phases. Ranges are measured on the CPU, so a range around a kernel launch alone measures only the launch, the same trap as with timers.</p>
+
+  <h3>8.4 Timing correctly</h3>
+  <p>For the assignments' stacked bar charts you need CPU timers around each phase. Two rules: synchronize before reading the timer, and exclude one-off start-up costs.</p>
+<pre><code>double now_ms() { using namespace std::chrono;
+  return duration&lt;double, std::milli&gt;(steady_clock::now().time_since_epoch()).count(); }
+
+cudaFree(0);                         // create the context before timing
+double t0 = now_ms();
+cudaMemcpy(d_a, h_a, bytes, cudaMemcpyHostToDevice);
+double t1 = now_ms();
+kernel&lt;&lt;&lt;g, b&gt;&gt;&gt;(…);
+cudaDeviceSynchronize();             // without this you time only the launch
+double t2 = now_ms();</code></pre>
+  <p>For more reliable numbers, run each size a few times and report the median; the first launch of a kernel is often slower (module loading).</p>
+
+  <h3>8.5 Occupancy</h3>
+  <div class="formula">occupancy = active warps per SM ÷ maximum warps per SM   (max = 32 on T4, 64 on H100)</div>
+  <p><strong>Theoretical occupancy</strong> is the best the resource limits allow. An SM's resident blocks are limited by whichever runs out first:</p>
+  <ol>
+    <li><strong>Warp slots:</strong> max warps per SM ÷ warps per block.</li>
+    <li><strong>Block slots:</strong> max blocks per SM (16 on a T4, 32 on an H100).</li>
+    <li><strong>Registers:</strong> 65,536 ÷ (registers per thread × threads per block).</li>
+    <li><strong>Shared memory:</strong> shared memory per SM ÷ shared memory per block.</li>
+  </ol>
+  <p><strong>Achieved occupancy</strong> is what was measured while the kernel ran. It's lower than theoretical when there aren't enough blocks to fill the GPU, when blocks finish unevenly, or when the kernel is so short that start-up and tail dominate.</p>
+
+  <div class="worked">
+    <div class="lbl">Worked example: compute occupancy by hand</div>
+    <p><strong>Problem 1.</strong> The Lecture 2 demo: <code>&lt;&lt;&lt;2, 32&gt;&gt;&gt;</code> on a T4. ncu reported 50% theoretical, 3.12% achieved. Explain both.</p>
+    <ol class="steps">
+      <li>Warps per block = 32/32 = 1.</li>
+      <li>Warp-slot limit: 32/1 = 32 blocks. Block-slot limit: 16. Registers and shared memory: tiny kernel, not limiting.</li>
+      <li>The tightest limit is 16 blocks × 1 warp = 16 warps; 16/32 = <strong>50% theoretical</strong>. Tiny blocks run out of block slots before warp slots.</li>
+      <li>But only 2 blocks exist for 40 SMs. A busy SM has 1 warp: 1/32 = <strong>3.12% achieved</strong>. The fix is more work, not tuning.</li>
+    </ol>
+    <p><strong>Problem 2.</strong> A kernel uses 256 threads per block and 80 registers per thread on a T4. What's the theoretical occupancy?</p>
+    <ol class="steps">
+      <li>Warps per block = 8. Warp-slot limit: 32/8 = 4 blocks. Block-slot limit: 16.</li>
+      <li>Register limit: 80 × 256 = 20,480 per block; 65,536 / 20,480 = 3.2, so 3 blocks.</li>
+      <li>Tightest: 3 blocks × 8 warps = 24 warps; 24/32 = <strong>75%</strong>. (Real hardware allocates registers in chunks, so ncu may report slightly lower.) Check registers per thread with <code>nvcc --resource-usage</code>.</li>
+    </ol>
+  </div>
+  <div class="key"><strong>Is higher occupancy always better?</strong> No. Occupancy is a means of hiding latency. Once there are enough warps to keep memory busy (often around 50%), more doesn't help, and some of the fastest kernels deliberately use many registers per thread at low occupancy. Treat low occupancy as a clue, not a verdict.</div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Which tool shows a timeline of the whole program, and which analyzes one kernel?</summary><div class="ans"><p>Nsight Systems (nsys) for the timeline; Nsight Compute (ncu) for one kernel.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why shouldn't you use kernel times from ncu in your bar charts?</summary><div class="ans"><p>ncu replays each kernel several times with hardware counters, flushes caches and serializes work, so its durations aren't representative. Use nsys or synchronized CPU timers for timing.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>What's the difference between theoretical and achieved occupancy?</summary><div class="ans"><p>Theoretical is the maximum resident warps allowed by the resource limits. Achieved is the average actually observed, which drops when there's too little work, uneven blocks or a short kernel.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Assignment 1 Q1 with N = 512, TPB = 256 on a T4: theoretical and roughly achieved occupancy?</summary><div class="ans"><p>8 warps per block: warp-slot limit 4 blocks = 32 warps → 100% theoretical. But only 2 blocks exist, so 2 of the 40 SMs have 8 warps each: achieved is low (ncu typically shows ~15–25% on the active SMs, since the kernel is very short). With N = 263,149 there are 1028 blocks, ~26 per SM, so achieved rises a lot (often 70–90%).</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A kernel uses 48 KB of shared memory per block on a T4 with 64 KB per SM. What's the most blocks per SM, and what does it mean for 128-thread blocks?</summary><div class="ans"><p>64/48 → 1 block per SM. With 128 threads = 4 warps, occupancy is 4/32 = 12.5%. Reduce shared memory per block or use larger blocks.</p></div></details>
+
+  <div class="lab"><h4>Lab: profile your Assignment 1 vector add</h4>
+    <ol>
+      <li>Add NVTX ranges around the H2D copy, the kernel (with sync) and the D2H copy.</li>
+      <li>Run <code>nsys profile --trace=cuda,nvtx --stats=true ./vectorAdd 16777216</code>. From the memory tables, compute your effective PCIe bandwidth.</li>
+      <li>Run <code>ncu --section=SpeedOfLight ./vectorAdd 16777216</code>. Predict first: which of "Memory Throughput" and "Compute Throughput" will be near 100%?</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p><strong>Step 2:</strong> H2D moves 2 × 64 MB = 134 MB. On Colab expect roughly 10–25 ms, so 5–13 GB/s effective (pageable host memory is slower than PCIe's peak). The kernel takes about 0.6–0.8 ms, so copies are about 95% of the total, matching your stacked bar chart.</p>
+      <p><strong>Step 3:</strong> Memory (DRAM) throughput around 85–95%, compute throughput in the low single digits, confirming Module 4's prediction that vector add is purely memory-bound.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c8"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 9 ================= -->
+<section class="mod" id="m9" data-title="Parallel patterns">
+  <div class="eyebrow">Module 9 · 2-CUDA-Computation</div>
+  <h2>First parallel patterns: map, stencil, matrix multiply</h2>
+  <p class="goal">Three shapes of computation that cover most of what you'll write in this course.</p>
+  <ul class="goals"><li>After this module you can: recognise map, stencil and matmul patterns, write each as a kernel with correct boundaries, explain why stencils need two buffers, and count the reads that later optimizations remove.</li></ul>
+
+  <h3>9.1 Map: each output depends on one input</h3>
+  <p>Vector add, scaling and the distance kernel are all maps: output i depends only on input i. One thread per element, no communication. Maps are always memory-bound unless the per-element work is heavy.</p>
+
+  <h3>9.2 Stencil: each output depends on its neighbours</h3>
+  <p>The 1D heat equation models heat diffusing along a rod. Each step, a point moves toward the average of its neighbours:</p>
+  <div class="formula">u_new[i] = u[i] + α · ( u[i−1] − 2·u[i] + u[i+1] )        stable for α ≤ 0.5</div>
+<pre><code>__global__ void heatStep(const float *u, float *u_new, int n, float alpha) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i &gt;= n) return;
+  if (i == 0 || i == n - 1) { u_new[i] = u[i]; return; }    // fixed boundary values
+  u_new[i] = u[i] + alpha * (u[i-1] - 2.0f * u[i] + u[i+1]);
+}
+// host: iterate, swapping buffers between steps
+for (int t = 0; t &lt; steps; t++) {
+  heatStep&lt;&lt;&lt;blocks, TPB&gt;&gt;&gt;(d_u, d_unew, n, 0.25f);
+  float *tmp = d_u; d_u = d_unew; d_unew = tmp;              // swap pointers, not data
+}</code></pre>
+  <p>Three things matter:</p>
+  <ul>
+    <li><strong>Boundaries:</strong> thread 0 has no <code>u[-1]</code>. Decide a rule (fixed values here) and guard it.</li>
+    <li><strong>Two buffers:</strong> if a thread wrote into <code>u</code> while its neighbour still needs the old value, the result would depend on which thread runs first, and threads have no guaranteed order. Read from one array, write to another.</li>
+    <li><strong>Synchronizing between steps:</strong> threads in different blocks can't sync with each other inside a kernel, so each time step is a separate launch. Launches in the same stream run in order, so step t+1 always sees step t's results.</li>
+  </ul>
+  <p>The same pattern is a 1D <strong>convolution</strong> with mask (α, 1−2α, α). General convolution uses a mask of any width.</p>
+
+  <h3>9.3 2D Jacobi: the 5-point stencil</h3>
+<pre><code>__global__ void jacobi(const float *in, float *out, int W, int H) {
+  int c = blockIdx.x * blockDim.x + threadIdx.x;
+  int r = blockIdx.y * blockDim.y + threadIdx.y;
+  if (c &lt; 1 || r &lt; 1 || c &gt;= W - 1 || r &gt;= H - 1) return;   // skip boundary
+  out[r*W + c] = 0.25f * (in[(r-1)*W + c] + in[(r+1)*W + c]
+                        + in[r*W + c - 1] + in[r*W + c + 1]);
+}</code></pre>
+  <p>Each input value is read by 4 different threads (its 4 neighbours). That reuse is wasted when every read goes to global memory. Loading a tile into shared memory once and reading it 4 times from there is the classic optimization in a later lecture.</p>
+
+  <h3>9.4 Matrix multiply</h3>
+  <p>C (M×P) = A (M×N) · B (N×P). Element C[r][c] is the dot product of row r of A and column c of B. One thread per element of C, with a 2D grid as in Module 6:</p>
+<pre><code>__global__ void matmul(const float *A, const float *B, float *C, int M, int N, int P) {
+  int c = blockIdx.x * blockDim.x + threadIdx.x;
+  int r = blockIdx.y * blockDim.y + threadIdx.y;
+  if (r &gt;= M || c &gt;= P) return;
+  float sum = 0.0f;
+  for (int k = 0; k &lt; N; k++)
+    sum += A[r * N + k] * B[k * P + c];
+  C[r * P + c] = sum;
+}</code></pre>
+  <ul>
+    <li><strong>FLOPs:</strong> each of the M·P outputs does N multiplies and N adds: <strong>2·M·N·P</strong> in total.</li>
+    <li><strong>Global reads:</strong> each output reads N elements of A and N of B: <strong>2·M·N·P</strong> reads, plus M·P writes.</li>
+    <li><strong>Reuse:</strong> each element of A is read P times (by every thread in its row of C) and each element of B M times. A only has M·N distinct elements, so almost all reads are repeats. Tiling in shared memory removes them.</li>
+    <li><strong>Access patterns:</strong> within a warp, <code>B[k*P + c]</code> is coalesced (c varies by lane), and <code>A[r*N + k]</code> is the same address for all lanes in a row, a broadcast. Both are efficient; the issue is the volume of reads, not their pattern.</li>
+  </ul>
+
+  <div class="worked">
+    <div class="lbl">Worked example: count the work</div>
+    <p><strong>Problem.</strong> A is 128 × 256 and B is 256 × 32 (Assignment 1 Q2, part 2). Count FLOPs, global reads, threads and blocks with 16×16 blocks.</p>
+    <ol class="steps">
+      <li>M = 128, N = 256, P = 32. FLOPs = 2·128·256·32 = 2,097,152.</li>
+      <li>Global reads = 2·M·N·P = 2,097,152 elements (8 bytes each in double = 16.8 MB of traffic, for 256 KB + 64 KB of distinct input).</li>
+      <li>Grid = (⌈32/16⌉, ⌈128/16⌉) = (2, 8) = 16 blocks × 256 = 4,096 threads, all doing work (M·P = 4,096).</li>
+      <li>Occupancy prediction: 16 blocks on 40 SMs means at most one 8-warp block per SM, so achieved occupancy will be low (around 25% or less). The problem is too small for the GPU.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Give the FLOP count and global read count for naive matmul.</summary><div class="ans"><p>Both are 2·M·N·P (plus M·P writes).</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why must the Jacobi kernel use two arrays?</summary><div class="ans"><p>Threads run in no guaranteed order. Updating in place means some threads read neighbours that are already updated and others the old values, so the result is nondeterministic and isn't the Jacobi method.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is each time step of the heat equation a separate kernel launch?</summary><div class="ans"><p>Step t+1 needs all of step t's results, including those computed by other blocks. There's no barrier across all blocks inside a normal kernel, but consecutive launches in one stream are ordered, so each launch boundary acts as a global synchronization.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>How many times is each element of A read from global memory in naive matmul with A 1024×8191, B 8191×8197?</summary><div class="ans"><p>P = 8197 times (once by each thread in that row of C). Each element of B is read M = 1024 times.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>What happens if you run the heat equation with α = 0.6?</summary><div class="ans"><p>It's unstable (α must be ≤ 0.5): small errors grow every step and the solution oscillates and blows up toward huge or infinite values. It's a property of the numerical method, not a GPU bug.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Write the 1D heat step as a convolution with a 3-element mask. What is the mask?</summary><div class="ans"><p>u_new[i] = α·u[i−1] + (1 − 2α)·u[i] + α·u[i+1], so the mask is [α, 1 − 2α, α]; for α = 0.25 it's [0.25, 0.5, 0.25].</p></div></details>
+
+  <div class="lab"><h4>Lab: simulate heat diffusion</h4>
+    <ol>
+      <li>N = 1024, α = 0.25. Initial condition: u = 1 for the 10 points in the middle (i = 507…516), 0 elsewhere, with fixed 0 at both ends.</li>
+      <li>Run 1000 steps, swapping pointers. Every 250 steps copy back and print the max value and the sum of u.</li>
+      <li>Predict before running: does the max go up or down? Does the sum stay constant?</li>
+      <li>Profile N = 2²⁰ with 1000 steps in nsys. Is the total time mostly kernels or launch overhead?</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+<pre><code>int n = 1024, steps = 1000, TPB = 256, blocks = (n + TPB - 1) / TPB;
+std::vector&lt;float&gt; h(n, 0.0f);
+for (int i = n / 2 - 5; i &lt; n / 2 + 5; i++) h[i] = 1.0f;
+float *d_u, *d_unew;
+cudaMalloc(&amp;d_u, n * 4); cudaMalloc(&amp;d_unew, n * 4);
+cudaMemcpy(d_u, h.data(), n * 4, cudaMemcpyHostToDevice);
+cudaMemcpy(d_unew, h.data(), n * 4, cudaMemcpyHostToDevice);   // boundaries too
+for (int t = 1; t &lt;= steps; t++) {
+  heatStep&lt;&lt;&lt;blocks, TPB&gt;&gt;&gt;(d_u, d_unew, n, 0.25f);
+  std::swap(d_u, d_unew);
+  if (t % 250 == 0) {
+    cudaMemcpy(h.data(), d_u, n * 4, cudaMemcpyDeviceToHost);
+    float mx = 0, s = 0; for (float v : h) { mx = fmaxf(mx, v); s += v; }
+    printf("step %4d  max %.4f  sum %.2f\n", t, mx, s);
+  }
+}</code></pre>
+      <p><strong>What you should see:</strong> the max falls quickly: roughly 0.36 at step 250, 0.25 at 500, 0.21 at 750 and 0.18 at 1000, as the spike spreads into a bell curve whose width grows like √t. The sum stays at 10.00, since heat is conserved until the curve reaches the ends (far more steps than 1000 for N = 1024).</p>
+      <p><strong>Step 4:</strong> each kernel at N = 2²⁰ moves about 8 MB, which takes ~30 µs; launch overhead is a few µs per launch. With 1000 launches, kernels dominate but overhead is visible as gaps on the timeline. At N = 1024 each kernel takes only ~2 µs and launch overhead dominates completely.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c9"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 10 ================= -->
+<section class="mod" id="m10" data-title="Book: real speedups">
+  <div class="eyebrow">Module 10 · <span class="tag book">Book bonus</span> Kirk &amp; Hwu, Chapter 1 (3rd ed.) §1.1, 1.3–1.7</div>
+  <h2>Why parallel, what speed-ups are realistic, and why it's hard</h2>
+  <p class="goal">The textbook's big-picture argument, which the course assumes you know.</p>
+  <ul class="goals"><li>After this module you can: explain why the industry moved to parallel hardware, use the book's Amdahl examples, describe the "peach" model of an application, name the four challenges of parallel programming, and compare CUDA with MPI, OpenMP, OpenACC and OpenCL.</li></ul>
+
+  <h3>10.1 The end of the free lunch (§1.1)</h3>
+  <p>Until about 2003, each new CPU ran existing programs faster because clock speeds kept rising. Then power and heat stopped that: a faster clock costs disproportionately more energy. Since then, vendors add <em>more cores</em> instead. A sequential program no longer gets faster on new hardware; only parallel programs do. The book calls this the <strong>concurrency revolution</strong>, and it describes two design paths:</p>
+  <ul>
+    <li><strong>Multicore</strong> (CPUs): a few cores, each keeping the full speed of a sequential processor.</li>
+    <li><strong>Many-thread</strong> (GPUs): huge numbers of simple threads, optimized for total throughput (Module 1).</li>
+  </ul>
+  <p>The book's main motivation for learning CUDA is <strong>scalability</strong>: write code that keeps getting faster as future GPUs add more SMs.</p>
+
+  <h3>10.2 Why more speed? (§1.3)</h3>
+  <p>The book argues that tomorrow's mass-market applications are today's "super-applications": molecular simulation in biology and medicine, high-resolution video processing, natural user interfaces, physics-based games. They all simulate a concurrent physical world with huge amounts of data, so they're naturally parallel. Its two rules of thumb:</p>
+  <ul>
+    <li>An application with data parallelism can often get a <strong>10× speed-up with a few hours of work</strong>.</li>
+    <li>A good, carefully optimized GPU implementation can reach <strong>more than 100×</strong> over one CPU core.</li>
+  </ul>
+  <p>This is directly relevant to your programme: molecular and medical simulation is one of the book's headline examples.</p>
+
+  <h3>10.3 Speeding up real applications (§1.4)</h3>
+  <p>The book makes Amdahl's law (Module 4) concrete with two examples. Check them yourself:</p>
+  <div class="tbl"><table>
+    <tr><th>Parallel fraction</th><th>Parallel part sped up</th><th>New time</th><th>Overall speed-up</th></tr>
+    <tr><td class="num">30%</td><td class="num">100×</td><td class="num">70% + 0.3% = 70.3%</td><td class="num">≈ 1.4×</td></tr>
+    <tr><td class="num">30%</td><td class="num">∞</td><td class="num">70%</td><td class="num">1.43× at most</td></tr>
+    <tr><td class="num">99%</td><td class="num">100×</td><td class="num">1% + 0.99% = 1.99%</td><td class="num">≈ 50×</td></tr>
+  </table></div>
+  <p>Three further points from this section:</p>
+  <ul>
+    <li><strong>100×+ needs more than 99.9% of the time in parallel code</strong>, and that usually requires improving the algorithm, not just porting it.</li>
+    <li><strong>Straightforward ports usually saturate DRAM bandwidth and stop at around 10×.</strong> Going further means using on-chip memories (shared memory, registers) to cut DRAM accesses, then working around their limited capacity. This is the arc of the whole course.</li>
+    <li><strong>Give the CPU a fair chance.</strong> Some code runs very well on CPUs. A GPU speed-up measured against a poor, single-threaded CPU baseline is misleading. Keep this in mind when you report speed-ups in your project.</li>
+  </ul>
+  <div class="key"><strong>The peach model.</strong> The book pictures an application as a peach. The <strong>pit</strong> is sequential code: a large share of the source, hard to parallelize, good for CPUs, but usually a small share of the runtime. The <strong>flesh</strong> is the data-parallel portions, easy to parallelize and where the runtime goes. CUDA aims to cover as much of the flesh as possible.</div>
+
+  <h3>10.4 Four challenges of parallel programming (§1.5)</h3>
+  <p>"If you don't care about performance, parallel programming is very easy." The hard part is speed, and the book names four reasons:</p>
+  <ol>
+    <li><strong>Algorithmic complexity.</strong> Some parallel algorithms do much more total work than the sequential version (they aren't <em>work-efficient</em>), so they can be slower on large inputs. Example: a naive parallel prefix sum does O(n log n) work against O(n) sequentially.</li>
+    <li><strong>Memory-bound execution.</strong> Many applications are limited by memory access speed rather than by instructions (Module 4), which calls for new ways of improving data access.</li>
+    <li><strong>Input sensitivity.</strong> Parallel performance varies much more with the characteristics of the input: irregular sizes, sparse structure, unpredictable data rates. This causes load imbalance and warp divergence.</li>
+    <li><strong>Recurrences.</strong> Problems naturally written as "step n depends on step n−1" need non-intuitive reformulations to parallelize, sometimes with redundant work.</li>
+  </ol>
+  <p>The good news: researchers have solved most of these for common <strong>patterns</strong> (reduction, scan, stencil, histogram, sparse matrix-vector product, and so on), and the rest of the book and course teaches them pattern by pattern.</p>
+
+  <h3>10.5 Programming models compared (§1.6)</h3>
+  <div class="tbl"><table>
+    <tr><th>Model</th><th>Targets</th><th>How you express parallelism</th><th>Book's view</th></tr>
+    <tr><td><strong>MPI</strong></td><td>Clusters; nodes share no memory</td><td>Explicit message sending and receiving; you partition data across nodes (domain decomposition)</td><td>Scales to 100,000+ nodes but porting is a lot of work. HPC codes combine MPI between nodes with CUDA within each node.</td></tr>
+    <tr><td><strong>OpenMP</strong></td><td>Shared-memory multicore CPUs</td><td>Compiler directives and pragmas on loops; a runtime manages threads</td><td>Easy to add to existing code; originally CPU-only.</td></tr>
+    <tr><td><strong>OpenACC</strong></td><td>Heterogeneous CPU+GPU systems</td><td>Directives; the compiler generates GPU code</td><td>Good "performance portability", but you still need to understand the CUDA concepts, and compilers sometimes fall short.</td></tr>
+    <tr><td><strong>OpenCL</strong></td><td>Processors from many vendors</td><td>Like CUDA, but relies more on APIs than on language extensions</td><td>Runs unmodified on any supporting processor, but usually needs re-tuning per device. Concepts carry over directly from CUDA.</td></tr>
+    <tr><td><strong>CUDA</strong></td><td>NVIDIA GPUs</td><td>Language extensions (kernels, <code>&lt;&lt;&lt; &gt;&gt;&gt;</code>) and explicit memory management</td><td>Gives explicit control of every detail, which makes it the best vehicle for learning, even if you later use something else.</td></tr>
+  </table></div>
+  <p>The book also mentions unified address spaces between CPU and GPU (the idea behind CUDA's Unified Memory, one of your possible project topics), which remove much of the manual copying.</p>
+
+  <h3>10.6 The book's three goals (§1.7)</h3>
+  <ol>
+    <li><strong>High performance</strong> through "computational thinking": reasoning about problems in ways that suit parallel hardware. You need hardware knowledge, taught as part of programming techniques.</li>
+    <li><strong>Correctness and reliability:</strong> fast code you can debug and support, using simple barrier synchronization, memory consistency and atomics.</li>
+    <li><strong>Scalability across future hardware:</strong> the key is to <em>regularize and localize</em> memory accesses, minimizing use of critical resources and conflicts when updating data.</li>
+  </ol>
+
+  <div class="worked">
+    <div class="lbl">Worked example: a speed-up claim, reviewed</div>
+    <p><strong>Claim.</strong> "Our GPU kernel is 80× faster than the CPU loop, so our medical imaging pipeline will be about 80× faster." The kernel's loop was 85% of the CPU runtime. Moving data to and from the GPU adds 5% of the original runtime.</p>
+    <ol class="steps">
+      <li>Original time: 1 (normalized). Serial part: 0.15. Parallel part: 0.85.</li>
+      <li>New time = 0.15 + 0.85/80 + 0.05 = 0.15 + 0.0106 + 0.05 = 0.2106.</li>
+      <li>Overall speed-up = 1/0.2106 ≈ <strong>4.7×</strong>, not 80×. Even with an infinitely fast kernel: 1/(0.15 + 0.05) = 5×.</li>
+      <li>What to do next: profile the remaining 15% (can any of it move to the GPU?), keep data on the GPU between steps to remove copies, and check that the CPU baseline was multithreaded (§1.4's "fair chance").</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Why did single-threaded performance stop improving around 2003?</summary><div class="ans"><p>Power and heat: raising clock speeds further cost too much energy. Vendors switched to adding cores, so only parallel software keeps getting faster.</p></div></details>
+  <details><summary><span class="lv">Recall</span>What are the book's four challenges of parallel programming?</summary><div class="ans"><p>Matching sequential algorithmic complexity (work efficiency), memory-bound execution, sensitivity to input characteristics, and problems described as recurrences.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why do straightforward GPU ports often stop at about 10×?</summary><div class="ans"><p>They saturate DRAM bandwidth: every operation reads its data from global memory. Further gains require reusing data from on-chip memories to cut DRAM traffic.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does the book use CUDA to teach, even for people who'll use OpenACC?</summary><div class="ans"><p>CUDA makes every parallel detail explicit (threads, memory spaces, transfers), so you learn the concepts directive-based models hide. Using OpenACC well still requires them, and you'll need CUDA where the compiler falls short.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Reproduce the book's numbers: 99% parallel, 100× faster parallel part. Then compute the speed-up if the parallel part were 1000× faster.</summary><div class="ans"><p>100×: new time = 0.01 + 0.0099 = 0.0199, speed-up ≈ 50×. 1000×: 0.01 + 0.00099 = 0.01099, speed-up ≈ 91×. The limit is 100×.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Which of the four challenges applies to (a) a sparse-matrix solver, (b) a prefix sum, (c) a time-stepping simulation where each step depends on the last?</summary><div class="ans"><p>(a) Input sensitivity: rows have very different numbers of non-zeros, giving load imbalance; it's also memory-bound. (b) Algorithmic complexity: the simple parallel scan isn't work-efficient. (c) Recurrence: steps can't run in parallel, so you parallelize within each step, one launch per step (Module 9).</p></div></details>
+  <label class="check"><input type="checkbox" id="c10"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 11 ================= -->
+<section class="mod" id="m11" data-title="Oral exam drill">
+  <div class="eyebrow">Module 11 · Review</div>
+  <h2>Oral exam drill</h2>
+  <p class="goal">Answer each question out loud in about a minute, with no notes. If you hesitate, go back to the module in brackets. Repeat weekly until all of them are easy.</p>
+
+  <h3>Concepts</h3>
+  <details><summary><span class="lv l2">Explain</span>How does a GPU hide memory latency, and what does that mean for how many threads you launch? [2]</summary><div class="ans"><p>A strong answer covers: warps of 32 run together; when a warp waits on memory the scheduler issues from another ready warp; switching is free because every resident warp keeps its registers on the SM; so you need many more threads than cores, enough warps per SM to cover a ~500-cycle latency.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does the GPU have small caches and a CPU large ones? [1, 2]</summary><div class="ans"><p>The CPU avoids latency for few threads using caches and prediction; the GPU tolerates it with many threads and spends the area on arithmetic units. Mention the throughput vs latency trade-off.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>What limits how many blocks can be resident on one SM? [3, 8]</summary><div class="ans"><p>Max warps per SM, max blocks per SM, registers (65,536 shared by all threads) and shared memory per SM. The tightest one sets theoretical occupancy.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Memory-bound versus compute-bound: how do you tell, and why does it matter? [4]</summary><div class="ans"><p>Compare arithmetic intensity (FLOPs per byte) with the machine balance (peak FLOP/s ÷ bandwidth, ≈ 25 on a T4). Below it, only reducing bytes moved helps; above it, only reducing or speeding up operations helps. Confirm with ncu's SpeedOfLight section.</p></div></details>
+
+  <h3>Your Assignment 1 code</h3>
+  <details><summary><span class="lv l2">Explain</span>Walk through your vector add host code. Which calls are synchronous? [5]</summary><div class="ans"><p>malloc host buffers → cudaMalloc → cudaMemcpy H2D (synchronous) → kernel launch (asynchronous) → cudaGetLastError → cudaDeviceSynchronize (to time the kernel) → cudaMemcpy D2H (synchronous) → compare with CPU reference → free everything.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Derive your grid and thread counts for N = 263,149 and for the 1024×8191 by 8191×8197 matmul. [6]</summary><div class="ans"><p>1028 blocks / 263,168 threads / 19 idle. Matmul: grid (513, 64) = 32,832 blocks, 8,404,992 threads, 8,393,728 working, 11,264 idle in the last block column.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Why was achieved occupancy low at N = 512 and high at N = 263,149? [8]</summary><div class="ans"><p>At 512 there are 2 blocks for 40 SMs, so most SMs are empty and the kernel is over almost instantly. At 263,149 there are 1028 blocks, many per SM, so the warp slots are filled for most of the kernel.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Why do copies dominate vector add, but the kernel dominates large matmul? [4, 9]</summary><div class="ans"><p>Vector add does O(N) work on O(N) data, with AI ≈ 0.08, so PCIe transfers are many times longer than the kernel. Matmul does O(n³) work on O(n²) data, so as n grows the compute (even memory-bound naive compute) outgrows the transfers.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Why is float so much faster than double on a T4, but less so on an H100? [3, 4]</summary><div class="ans"><p>The T4 (Turing) has an FP64 rate of 1/32 of FP32, so double compute is extremely slow. The H100 has FP64 at 1/2 of FP32. Also, float moves half the bytes, which helps memory-bound parts on both GPUs by about 2×.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why can't you compare GPU and CPU floating-point results with <code>==</code>? [7]</summary><div class="ans"><p>Rounding at every operation, combined with FMA contraction, different summation order (addition isn't associative) and fast-math functions, means results can differ in the last bits. Use a relative tolerance.</p></div></details>
+
+  <h3>Big picture</h3>
+  <details><summary><span class="lv l3">Apply</span>Name three reasons a 50× kernel speed-up can give a much smaller application speed-up. [4, 10]</summary><div class="ans"><p>Amdahl's law (serial code left over), host↔device copies, and a weak CPU baseline that makes the kernel speed-up look bigger than it is. Also start-up costs such as context creation.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why must a stencil use two buffers, and why is each time step a separate launch? [9]</summary><div class="ans"><p>No ordering between threads means in-place updates mix old and new values. There's no barrier across blocks inside a kernel, and launches in one stream are ordered, so each launch boundary synchronizes all blocks.</p></div></details>
+  <label class="check"><input type="checkbox" id="c11"> I can answer all of these without notes</label>
+</section>
+</main>
+</div>
+
+<script>
+(function(){
+  // decorative GPU core grid (Module 1 figure)
+  var g=document.getElementById('gpucores');
+  if(g){var ns='http://www.w3.org/2000/svg';
+    for(var r=0;r<7;r++)for(var c=0;c<16;c++){var e=document.createElementNS(ns,'rect');
+      e.setAttribute('x',340+c*16.4);e.setAttribute('y',34+r*18);e.setAttribute('width',13);e.setAttribute('height',14);
+      e.setAttribute('rx',2);e.setAttribute('fill','var(--accent)');g.appendChild(e);}}
+  // index map figure (Module 6)
+  var ig=document.getElementById('idxgrid');
+  if(ig){var ns2='http://www.w3.org/2000/svg';
+    for(var b=0;b<3;b++){
+      var bx=10+b*200;
+      var lab=document.createElementNS(ns2,'text');lab.setAttribute('x',bx);lab.setAttribute('y',16);lab.textContent='blockIdx.x = '+b;ig.appendChild(lab);
+      for(var t=0;t<4;t++){
+        var x=bx+t*44, i=b*4+t, hi=(b===1&&t===2);
+        var r=document.createElementNS(ns2,'rect');r.setAttribute('x',x);r.setAttribute('y',24);r.setAttribute('width',40);r.setAttribute('height',48);r.setAttribute('rx',4);
+        r.setAttribute('fill',hi?'var(--accent)':'var(--code-bg)');r.setAttribute('stroke','var(--line)');ig.appendChild(r);
+        var t1=document.createElementNS(ns2,'text');t1.setAttribute('x',x+8);t1.setAttribute('y',44);t1.textContent='t'+t;if(hi)t1.setAttribute('fill','var(--bg)');ig.appendChild(t1);
+        var t2=document.createElementNS(ns2,'text');t2.setAttribute('x',x+8);t2.setAttribute('y',64);t2.textContent='i='+i;if(hi)t2.setAttribute('fill','var(--bg)');ig.appendChild(t2);
+      }}}
+  // table of contents + progress
+  var mods=[].slice.call(document.querySelectorAll('section.mod'));
+  var toc=document.getElementById('toc');
+  mods.forEach(function(m,i){
+    var li=document.createElement('li');
+    li.innerHTML='<a href="#'+m.id+'"><span class="n">'+String(i+1).padStart(2,'0')+'</span><span>'+m.dataset.title+'</span></a>';
+    toc.appendChild(li);
+  });
+  var boxes=mods.map(function(m){return m.querySelector('label.check input');});
+  var saved={};
+  try{saved=JSON.parse(localStorage.getItem('dd2360-wb')||'{}')}catch(e){}
+  function render(){
+    var n=0;
+    boxes.forEach(function(b,i){ if(b&&b.checked)n++; toc.children[i].classList.toggle('done',!!(b&&b.checked)); });
+    document.getElementById('ptext').textContent=n+' of '+boxes.length+' modules done';
+    document.getElementById('pbar').style.width=(100*n/boxes.length)+'%';
+  }
+  boxes.forEach(function(b){ if(!b)return;
+    b.checked=!!saved[b.id];
+    b.addEventListener('change',function(){ saved[b.id]=b.checked; try{localStorage.setItem('dd2360-wb',JSON.stringify(saved))}catch(e){} render(); });
+  });
+  render();
+})();
+</script>
+
+</body>
+</html>
