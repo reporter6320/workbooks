@@ -90,6 +90,15 @@ label.check input{width:18px;height:18px;accent-color:var(--accent)}
 .svgbox .mut{fill:var(--muted)}
 .formula{font-family:var(--mono);font-size:15px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:12px 0;overflow-x:auto;white-space:nowrap}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+.plan{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 22px 18px;margin:32px 0 0}
+.plan h2{font-family:var(--display);font-size:28px;margin:12px 0 4px}
+.rule{font-size:17px;max-width:68ch}
+.tl{list-style:none;padding:0;margin:12px 0;display:grid;gap:0}
+.tl li{display:grid;grid-template-columns:92px minmax(0,1fr);gap:14px;padding:8px 0;border-bottom:1px solid var(--line);max-width:none}
+.tl time{font-family:var(--mono);font-size:13px;color:var(--accent);font-variant-numeric:tabular-nums;padding-top:2px}
+.tl .past time{color:var(--muted)}
+.chk{list-style:none;padding:0}.chk li{display:flex;gap:10px;align-items:flex-start}
+.chk input{margin-top:5px;width:16px;height:16px;accent-color:var(--accent);flex:none}
 img{max-width:100%}[hidden]{display:none!important}
 .back{font-size:14px;color:var(--accent)}
 </style>
@@ -116,6 +125,50 @@ img{max-width:100%}[hidden]{display:none!important}
     <div><b>4 · Run</b>The lab on Colab. Predict first, then compare with the solution.</div>
   </div>
 </header>
+
+<section class="plan" id="a-plan">
+  <div class="eyebrow">Read this first</div>
+  <h2>The route to an A</h2>
+  <p class="rule">From the course's grading table (Logistics, slide 11): <strong>an A needs all three of</strong> (1) a pass on all 4 assignments, (2) all 3 bonus exercises, and (3) an A on the final project. Every other combination caps you lower: missing one bonus gives at most C, and a B project gives a B.</p>
+  <div class="tbl"><table>
+    <tr><th>Requirement</th><th>What it takes</th><th>What decides it</th><th>Workbook support</th></tr>
+    <tr><td>Pass all 4 assignments</td><td>Due Nov 6, Nov 20, Dec 4, Dec 18. No late submissions unless approved in advance.</td><td>Correct code, and answers you can defend without AI</td><td>Modules 5–9 (A1); new modules ahead of A2–A4</td></tr>
+    <tr><td>All 3 bonus exercises</td><td>Submitted inside Assignments 2, 3 and 4, then <strong>one oral examination</strong> that you sign up for</td><td>Whether you can explain your bonus code live</td><td>Module 11 drill; a bonus module for each when released</td></tr>
+    <tr><td>Project grade A</td><td>Proposal Nov 13, report Jan 5, <strong>presentation Jan 7 or 8</strong> (optional for others, required for A/B). Your individual llm.c project is approved.</td><td>Depth of analysis on ≥ 3 topics, measured and explained</td><td>Modules 4 and 8 now; project modules on tiling, cuBLAS, mixed precision, Tensor Cores</td></tr>
+  </table></div>
+
+  <h3>Timeline</h3>
+  <ol class="tl">
+    <li class="past"><time>Nov 6</time><span>Assignment 1 due · TA help session</span></li>
+    <li><time>Nov 13</time><span>Project proposal due · cluster access request</span></li>
+    <li><time>Nov 20</time><span>Assignment 2 (with bonus 1) due</span></li>
+    <li><time>Nov 27</time><span>TA help session</span></li>
+    <li><time>Dec 4</time><span>Assignment 3 (with bonus 2) due · TA help session</span></li>
+    <li><time>Dec 18</time><span>Assignment 4 (with bonus 3) due · sign up for the oral exam</span></li>
+    <li><time>Jan 5</time><span>Final project report due</span></li>
+    <li><time>Jan 7–8</time><span>Project presentation</span></li>
+  </ol>
+  <p class="src">Dates are from the Logistics slides ("tentative"). Check Canvas announcements for changes.</p>
+
+  <h3>What an A answer looks like</h3>
+  <p>The assignments are pass/fail, so the grade is decided by the oral exam and the project. Both reward the same habit: <strong>every claim is measured, and every measurement is explained with a model.</strong></p>
+  <ul>
+    <li><strong>C-level:</strong> "float was faster than double."</li>
+    <li><strong>A-level</strong> (illustrative numbers): "Float was 9.6× faster on the T4. Copies halved because there are half the bytes, and the kernel sped up about 14× because Turing's FP64 rate is 1/32 of FP32. It didn't reach 32× because the naive kernel is memory-bound (AI ≈ 0.25), which ncu's SpeedOfLight confirms at 85% DRAM throughput."</li>
+  </ul>
+  <p>The second answer uses Modules 3, 4 and 8 together. That is what the Apply exercises in every module train.</p>
+
+  <h3>This week's checklist</h3>
+  <ul class="chk">
+    <li><input type="checkbox" id="p1"><label for="p1">Modules 1–4 done (concepts the oral exam builds on)</label></li>
+    <li><input type="checkbox" id="p2"><label for="p2">Modules 5–9 done, with every lab run on Colab</label></li>
+    <li><input type="checkbox" id="p3"><label for="p3">Project proposal submitted (Nov 13)</label></li>
+    <li><input type="checkbox" id="p4"><label for="p4">Cluster access requested (Nov 13)</label></li>
+    <li><input type="checkbox" id="p5"><label for="p5">llm.c builds and runs one training step on Colab</label></li>
+    <li><input type="checkbox" id="p6"><label for="p6">Module 11 drill: all questions answered aloud without notes</label></li>
+  </ul>
+</section>
+
 
 <!-- ================= MODULE 1 ================= -->
 <section class="mod" id="m1" data-title="Latency vs throughput">
@@ -1074,8 +1127,13 @@ for (int t = 1; t &lt;= steps; t++) {
         var t2=document.createElementNS(ns2,'text');t2.setAttribute('x',x+8);t2.setAttribute('y',64);t2.textContent='i='+i;if(hi)t2.setAttribute('fill','var(--bg)');ig.appendChild(t2);
       }}}
   // table of contents + progress
+  [].slice.call(document.querySelectorAll('.chk input')).forEach(function(b){
+    var k='dd2360-plan-'+b.id; try{b.checked=localStorage.getItem(k)==='1'}catch(e){}
+    b.addEventListener('change',function(){try{localStorage.setItem(k,b.checked?'1':'0')}catch(e){}});
+  });
   var mods=[].slice.call(document.querySelectorAll('section.mod'));
   var toc=document.getElementById('toc');
+  var pl=document.createElement('a');pl.href='#a-plan';pl.innerHTML='<span class="n">★</span><span>Route to an A</span>';pl.style.marginBottom='6px';toc.parentNode.insertBefore(pl,toc);
   mods.forEach(function(m,i){
     var li=document.createElement('li');
     li.innerHTML='<a href="#'+m.id+'"><span class="n">'+String(i+1).padStart(2,'0')+'</span><span>'+m.dataset.title+'</span></a>';
