@@ -171,6 +171,51 @@ img{max-width:100%}[hidden]{display:none!important}
 
 
 <!-- ================= MODULE 1 ================= -->
+<section class="plan" id="my-gpu">
+  <div class="eyebrow">Your hardware</div>
+  <h2>Your GPU: RTX 3050 6GB Laptop</h2>
+  <p>Ampere architecture, compute capability 8.6. Compile with <code>-arch=sm_86</code>. The workbook's worked examples use the Colab T4; use this table to redo them for your own GPU. Laptop GPUs ship with different power limits and clocks, so the starred values are approximate: confirm them with the Module 3 device-query lab and fill in your own.</p>
+  <div class="tbl"><table>
+    <tr><th>Property</th><th>Your RTX 3050 Laptop</th><th>Colab T4</th><th>Cluster H100 (full)</th><th>What it changes</th></tr>
+    <tr><td>Compute capability</td><td>8.6 (<code>sm_86</code>)</td><td>7.5</td><td>9.0</td><td>Compile flag</td></tr>
+    <tr><td>SMs × FP32 cores/SM</td><td class="num">20 × 128 = 2,560</td><td class="num">40 × 64</td><td class="num">132 × 128</td><td>Half the SMs of a T4: fewer blocks fill it (Modules 2, 8)</td></tr>
+    <tr><td>Max warps / SM</td><td class="num">48 (1,536 threads)</td><td class="num">32</td><td class="num">64</td><td>Redo Module 8's occupancy calculations with 48</td></tr>
+    <tr><td>Max blocks / SM</td><td class="num">16</td><td class="num">16</td><td class="num">32</td><td></td></tr>
+    <tr><td>Shared memory</td><td class="num">up to 100 KB/SM, 99 KB/block opt-in</td><td class="num">64 KB</td><td class="num">228 KB</td><td>Larger tiles possible (Module 14)</td></tr>
+    <tr><td>Memory</td><td class="num">6 GB GDDR6, 96-bit, ≈ 168 GB/s*</td><td class="num">16 GB, 320 GB/s</td><td class="num">80 GB, 3.35 TB/s</td><td>Memory-bound kernels about half T4 speed</td></tr>
+    <tr><td>L2 cache</td><td class="num">2 MB*</td><td class="num">4 MB</td><td class="num">50 MB</td><td></td></tr>
+    <tr><td>FP32 peak</td><td class="num">≈ 5–8 TFLOP/s* (depends on clock)</td><td class="num">8.1</td><td class="num">67</td><td>Compute it: 2,560 × 2 × your boost clock</td></tr>
+    <tr><td>FP64 rate</td><td class="num">1/64 of FP32</td><td class="num">1/32</td><td class="num">1/2</td><td>Double precision is very slow: A1 Q2 float vs double gap is larger than on a T4</td></tr>
+    <tr><td>Tensor Cores</td><td>3rd gen: FP16, <strong>BF16</strong>, TF32, INT8, 2:4 sparsity</td><td>FP16, INT8 (no BF16)</td><td>+ FP8</td><td>BF16 project work can be developed locally (Modules 20–21)</td></tr>
+    <tr><td>Machine balance</td><td class="num">≈ 30–45 FLOP/byte*</td><td class="num">≈ 25</td><td class="num">≈ 20</td><td>Even more kernels are memory-bound (Module 4)</td></tr>
+  </table></div>
+
+  <h3>Memory budget (6 GB, minus what the desktop uses)</h3>
+  <ul>
+    <li><strong>Assignments 1–2:</strong> fine. The largest A1 matmul in double needs about 0.67 GB.</li>
+    <li><strong>QuEST at 28 qubits:</strong> needs 4 GiB for the state vector, which is tight. Log out of the graphical session or close browsers, and check <code>nvidia-smi</code> for free memory first. If it fails, run 28 qubits on Colab or the cluster and say so in the report.</li>
+    <li><strong>llm.c GPT-2 124M training:</strong> about 2 GB for FP32 weights, gradients and Adam state, plus activations. Start with <code>-b 4 -t 1024</code> (batch 4, sequence 1024) and lower <code>-b</code> if you run out of memory. BF16 roughly halves activation memory.</li>
+  </ul>
+
+  <h3>Fedora setup checklist</h3>
+  <ul class="chk">
+    <li><input type="checkbox" id="g1"><label for="g1">Driver from RPM Fusion (<code>akmod-nvidia</code>); <code>nvidia-smi</code> works (done ✓)</label></li>
+    <li><input type="checkbox" id="g2"><label for="g2">CUDA 13 toolkit from NVIDIA's Fedora repository, installing <code>cuda-toolkit</code> only, not the driver packages, so it doesn't conflict with RPM Fusion's driver</label></li>
+    <li><input type="checkbox" id="g3"><label for="g3">Add <code>/usr/local/cuda/bin</code> to <code>PATH</code>; <code>nvcc --version</code> works</label></li>
+    <li><input type="checkbox" id="g4"><label for="g4">If nvcc complains "unsupported GNU version", Fedora's GCC is newer than CUDA supports: install an older GCC (Fedora ships compat packages such as <code>gcc14</code>) and compile with <code>nvcc -ccbin g++-14 …</code> (use the version CUDA's release notes list)</label></li>
+    <li><input type="checkbox" id="g5"><label for="g5">Nsight Compute counters: create <code>/etc/modprobe.d/nvidia-profiling.conf</code> containing <code>options nvidia NVreg_RestrictProfilingToAdminUsers=0</code>, run <code>sudo dracut -f</code>, reboot (or run <code>sudo ncu …</code>)</label></li>
+    <li><input type="checkbox" id="g6"><label for="g6">Run the Module 3 device-query lab and record your real SM count, clock and memory</label></li>
+  </ul>
+
+  <h3>Getting trustworthy timings on a laptop</h3>
+  <ul>
+    <li>Plug in the charger and choose the performance power profile (<code>powerprofilesctl set performance</code>). On battery, the GPU clocks down sharply.</li>
+    <li>Warm up (run once untimed), then take the median of 5–10 runs. Watch for thermal throttling with <code>nvidia-smi -q -d PERFORMANCE,CLOCK</code>.</li>
+    <li>On hybrid-graphics laptops, keep the display on the integrated GPU so the NVIDIA GPU's memory and time are all yours.</li>
+    <li>In every report, name the GPU, driver, CUDA version and power mode. For the final project numbers, prefer the cluster for stability, and use the laptop for development.</li>
+  </ul>
+</section>
+
 <section class="mod" id="m1" data-title="Latency vs throughput">
   <div class="eyebrow">Module 1 · Lecture 1.1, 1.2 · Book §1.1</div>
   <h2>Two ways to build a processor</h2>
@@ -2436,7 +2481,7 @@ cudaMemcpyPeerAsync(d_dst_on1, 1, d_src_on0, 0, bytes, s0);   // GPU0 → GPU1 w
   });
   var mods=[].slice.call(document.querySelectorAll('section.mod'));
   var toc=document.getElementById('toc');
-  var pl=document.createElement('a');pl.href='#a-plan';pl.innerHTML='<span class="n">★</span><span>Route to an A</span>';pl.style.marginBottom='6px';toc.parentNode.insertBefore(pl,toc);
+  var pl=document.createElement('a');pl.href='#a-plan';pl.innerHTML='<span class="n">★</span><span>Route to an A</span>';pl.style.marginBottom='2px';toc.parentNode.insertBefore(pl,toc);var gl=document.createElement('a');gl.href='#my-gpu';gl.innerHTML='<span class="n">◆</span><span>Your GPU</span>';gl.style.marginBottom='6px';toc.parentNode.insertBefore(gl,toc);
   mods.forEach(function(m,i){
     var li=document.createElement('li');
     li.innerHTML='<a href="#'+m.id+'"><span class="n">'+String(i+1).padStart(2,'0')+'</span><span>'+m.dataset.title+'</span></a>';
