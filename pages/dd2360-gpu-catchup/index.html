@@ -132,9 +132,9 @@ img{max-width:100%}[hidden]{display:none!important}
   <p class="rule">From the course's grading table (Logistics, slide 11): <strong>an A needs all three of</strong> (1) a pass on all 4 assignments, (2) all 3 bonus exercises, and (3) an A on the final project. Every other combination caps you lower: missing one bonus gives at most C, and a B project gives a B.</p>
   <div class="tbl"><table>
     <tr><th>Requirement</th><th>What it takes</th><th>What decides it</th><th>Workbook support</th></tr>
-    <tr><td>Pass all 4 assignments</td><td>Due Nov 6, Nov 20, Dec 4, Dec 18. No late submissions unless approved in advance.</td><td>Correct code, and answers you can defend without AI</td><td>Modules 5–9 (A1); Modules 12–15 (A2); 16–19 (A3 topics); more ahead of A4</td></tr>
-    <tr><td>All 3 bonus exercises</td><td>Submitted inside Assignments 2, 3 and 4, then <strong>one oral examination</strong> that you sign up for</td><td>Whether you can explain your bonus code live</td><td>Module 11 drill; Module 15 prepares bonus 1 (iPIC3D mover)</td></tr>
-    <tr><td>Project grade A</td><td>Proposal Nov 13, report Jan 5, <strong>presentation Jan 7 or 8</strong> (optional for others, required for A/B). Your individual llm.c project is approved.</td><td>Depth of analysis on ≥ 3 topics, measured and explained</td><td>Modules 4 and 8 now; project modules on tiling, cuBLAS, mixed precision, Tensor Cores</td></tr>
+    <tr><td>Pass all 4 assignments</td><td>Due Nov 6, Nov 20, Dec 4, Dec 18. No late submissions unless approved in advance.</td><td>Correct code, and answers you can defend without AI</td><td>Modules 5–9 (A1); Modules 12–15 (A2); 16–19 (A3); 20–23 (A4)</td></tr>
+    <tr><td>All 3 bonus exercises</td><td>Submitted inside Assignments 2, 3 and 4, then <strong>one oral examination</strong> that you sign up for</td><td>Whether you can explain your bonus code live</td><td>Module 11 and 24 drills; Module 15 prepares bonus 1 (iPIC3D mover)</td></tr>
+    <tr><td>Project grade A</td><td>Proposal Nov 13, report Jan 5, <strong>presentation Jan 7 or 8</strong> (optional for others, required for A/B). Your individual llm.c project is approved.</td><td>Depth of analysis on ≥ 3 topics, measured and explained</td><td>Modules 14 (tiling), 20 (Tensor Cores), 21 (BF16), 22 (cuBLAS); defence drill in 24</td></tr>
   </table></div>
 
   <h3>Timeline</h3>
@@ -1970,6 +1970,421 @@ cudaMemAdvise(x, bytes, cudaMemAdviseSetPreferredLocation, dev);</code></pre>
     </div></details>
   </div>
   <label class="check"><input type="checkbox" id="c19"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= PART 4 DIVIDER ================= -->
+<section class="plan" id="part4" style="margin-top:56px">
+  <div class="eyebrow">Part 4 · Lectures 1.3b, 1.4, 3.3.1, 7 · Main topics 3 and 4 · Project topics 3–5</div>
+  <h2>Tensor Cores, low precision, libraries and scaling out</h2>
+  <p>The fastest GEMM you can write by hand on a modern GPU is still several times slower than the hardware's peak, because the peak lives in <strong>Tensor Cores</strong> running in <strong>reduced precision</strong>, reached most easily through <strong>libraries</strong>. This part covers all three, then Triton and multiple GPUs. Modules 20–22 map directly onto your llm.c project topics.</p>
+  <p class="src"><strong>Sources.</strong> Module 20 follows the slides 1.3b Tensor Cores and 1.4 AMD GPUs, and the course reading by Markidis, Chien, Laure, Peng and Vetter (2018). Module 22 follows the CUDA Libraries and cuRAND tutorials. Module 23's multi-GPU half follows slides 3.3.1. Module 21, CUTLASS and Triton are Lecture 7 topics you received only as a list, written from NVIDIA documentation and the Triton docs.</p>
+</section>
+
+<!-- ================= MODULE 20 ================= -->
+<section class="mod" id="m20" data-title="Tensor & matrix cores">
+  <div class="eyebrow">Module 20 · Lecture 1.3b (Tensor Cores) · 1.4 (AMD GPUs) · Reading: Markidis et al. 2018 · Reading: AMD Matrix Core</div>
+  <h2>Tensor Cores and matrix cores</h2>
+  <p class="goal">Hardware that does a whole small matrix multiply per instruction, and what it costs in precision.</p>
+  <ul class="goals"><li>After this module you can: explain what a Tensor Core computes and why it's so fast, compute peak throughput from unit counts, program one with WMMA, summarize the course reading's findings on performance and precision (including its residual technique), and compare NVIDIA Tensor Cores with AMD matrix cores.</li></ul>
+
+  <h3>20.1 What a Tensor Core does</h3>
+  <p>A normal CUDA core does one fused multiply-add (FMA) per cycle: <code>d = a·b + c</code> on scalars. Volta (V100, 2017) added <strong>Tensor Cores</strong> to each SM. A Tensor Core does</p>
+  <div class="formula">D = A · B + C       on 4 × 4 matrices, in one clock cycle  =  64 FMAs = 128 FLOPs per cycle</div>
+  <p>with A and B in <strong>half precision (FP16)</strong> and the accumulation C, D in FP16 or <strong>FP32</strong>. That's <strong>mixed precision</strong>: cheap 16-bit inputs, but products summed in 32 bits so rounding errors don't pile up. Each FMA rounds once instead of twice (Module 7), which also helps accuracy.</p>
+  <p>Why so fast? Matrix multiply has huge data reuse (Module 4). One instruction that fetches 32 inputs and does 64 FMAs needs far less control logic, register traffic and energy per FLOP than 64 separate FMA instructions. The silicon goes to arithmetic.</p>
+
+  <h3>20.2 Peak throughput, from the slides</h3>
+  <p>The V100 has 80 SMs; each SM has 4 processing blocks with 2 Tensor Cores each, so 8 per SM and 640 in total.</p>
+  <div class="formula">640 Tensor Cores × 64 FMA × 2 FLOP × 1.53 GHz ≈ 125 TFLOP/s  (vs 15.7 TFLOP/s FP32 on CUDA cores)</div>
+  <div class="tbl"><table>
+    <tr><th>GPU</th><th>Tensor Core generation</th><th>Input types</th><th>Dense peak (approx.)</th></tr>
+    <tr><td>V100 (Volta, 2017)</td><td>1st</td><td>FP16</td><td class="num">125 TFLOP/s FP16</td></tr>
+    <tr><td>T4 (Turing, Colab)</td><td>2nd</td><td>FP16, INT8, INT4 (<strong>no BF16</strong>)</td><td class="num">65 TFLOP/s FP16, 130 TOPS INT8</td></tr>
+    <tr><td>A100 (Ampere)</td><td>3rd</td><td>+ TF32, BF16, FP64, 2:4 sparsity</td><td class="num">312 TFLOP/s FP16/BF16, 156 TF32</td></tr>
+    <tr><td>H100 SXM (Hopper, cluster)</td><td>4th</td><td>+ FP8</td><td class="num">≈ 990 TFLOP/s FP16/BF16, ≈ 1,980 FP8</td></tr>
+  </table></div>
+  <div class="key pit"><strong>Project warning.</strong> Your proposal plans BF16 training in llm.c. The <strong>T4 has no BF16 Tensor Cores</strong>: BF16 needs Ampere or newer. Develop on Colab in FP32 (or FP16), but run the mixed-precision experiments on the cluster's H100 slice, and say so in the report.</div>
+
+  <h3>20.3 Three ways to program them (from the reading)</h3>
+  <ol>
+    <li><strong>WMMA API</strong> (warp matrix multiply-accumulate): CUDA C++ calls where a <em>whole warp</em> cooperatively loads 16×16 tiles into opaque "fragments" and multiplies them.</li>
+    <li><strong>CUTLASS</strong>: NVIDIA's C++ template library of GEMM building blocks (Module 22).</li>
+    <li><strong>cuBLAS</strong>: call GEMM with Tensor Core math enabled (Module 22).</li>
+  </ol>
+<pre><code>#include &lt;mma.h&gt;
+using namespace nvcuda;
+// one warp computes a 16x16 tile of C = A (16xK) * B (Kx16); half inputs, float accumulate
+__global__ void wmma_tile(const half *A, const half *B, float *C, int K, int lda, int ldb, int ldc) {
+  wmma::fragment&lt;wmma::matrix_a, 16, 16, 16, half, wmma::row_major&gt; a;
+  wmma::fragment&lt;wmma::matrix_b, 16, 16, 16, half, wmma::row_major&gt; b;
+  wmma::fragment&lt;wmma::accumulator, 16, 16, 16, float&gt; acc;
+  wmma::fill_fragment(acc, 0.0f);
+  for (int k = 0; k &lt; K; k += 16) {
+    wmma::load_matrix_sync(a, A + k, lda);          // whole warp loads the tile
+    wmma::load_matrix_sync(b, B + k * ldb, ldb);
+    wmma::mma_sync(acc, a, b, acc);                  // Tensor Core multiply-accumulate
+  }
+  wmma::store_matrix_sync(C, acc, ldc, wmma::mem_row_major);
+}
+// launch one warp: wmma_tile&lt;&lt;&lt;1, 32&gt;&gt;&gt;(…); a full GEMM tiles C across many warps and blocks</code></pre>
+  <p>Note the shift in thinking: the unit of work is a <strong>warp</strong>, not a thread. Fragments are distributed across the 32 lanes in an undocumented layout, and the <code>_sync</code> functions must be called by all lanes. Dimensions must be multiples of 16, so pad with zeros otherwise.</p>
+
+  <h3>20.4 What the reading found (Markidis et al., 2018, on a V100)</h3>
+  <ul>
+    <li><strong>Performance:</strong> up to <strong>83 TFLOP/s</strong> in mixed precision with cuBLAS, about 7× single-precision and 3× half-precision (non-Tensor-Core) GEMM, but still only two thirds of the 125 TFLOP/s peak. A WMMA batched GEMM for many small matrices reached about 4 TFLOP/s. Tensor Cores sped up GEMM about 6× for large matrices and 2.5–12× for many small matrices in parallel.</li>
+    <li><strong>Programmability:</strong> WMMA gives direct control but is low-level; CUTLASS builds on it; cuBLAS is easiest and fastest for standard GEMMs.</li>
+    <li><strong>Precision:</strong> rounding FP32 inputs to FP16 loses accuracy, and the error grows with matrix size. That might be critical for HPC applications.</li>
+    <li><strong>Their fix, residual refinement:</strong> split each input into a half-precision part and the leftover, <code>R_A = A_single − A_half</code> (also stored in FP16). Then compute
+      <div class="formula">A·B ≈ A_h·B_h + A_h·R_B + R_A·B_h      (dropping the tiny R_A·R_B)</div>
+      Each term runs on Tensor Cores. Three GEMMs instead of one buys back most of the precision, while still beating FP32 CUDA cores when Tensor Cores are ≥ 3× faster. You can refine one or both matrices depending on the accuracy you need.</li>
+    <li><strong>Outlook:</strong> codes built on GEMM benefit directly; others (e.g. particle codes) would need reformulating in matrix form.</li>
+  </ul>
+
+  <h3>20.5 AMD: MI100 and matrix cores</h3>
+  <ul>
+    <li>AMD's data-centre line (CDNA architecture, Instinct MI100/MI200/MI300) powers Frontier, El Capitan, LUMI and KTH's own <strong>Dardel</strong>.</li>
+    <li>Vocabulary: AMD's <strong>compute unit (CU)</strong> ≈ NVIDIA's SM; a <strong>wavefront</strong> is 64 threads (vs a 32-thread warp); MI100 has 120 CUs with HBM2.</li>
+    <li>From the slides: MI100 offers 11.5 TFLOP/s FP64 and 23.1 TFLOP/s FP32, against the A100's 9.7 and 19.5 (non-Tensor-Core). It's competitive in raw performance, while NVIDIA's software ecosystem (CUDA, libraries, tools) is more mature.</li>
+    <li><strong>Matrix Core Engines</strong> are AMD's equivalent of Tensor Cores, programmed through rocBLAS, rocWMMA or compiler intrinsics. The course reading (Schieffer, De Medeiros, Faj, Marathe and Peng, ISPASS 2024) studies their performance, power efficiency and programmability.</li>
+    <li><strong>Portability:</strong> HIP is nearly source-compatible with CUDA (<code>cudaMalloc</code> → <code>hipMalloc</code>), and <code>hipify</code> tools translate code automatically. Everything in this workbook transfers, but warp-size assumptions (32 vs 64) must be checked.</li>
+  </ul>
+
+  <div class="worked">
+    <div class="lbl">Worked example: is the residual trick worth it?</div>
+    <p><strong>Problem.</strong> On a V100, FP32 GEMM on CUDA cores runs at ~14 TFLOP/s and Tensor Core GEMM at ~83 TFLOP/s. You need better accuracy than plain FP16 inputs give. Compare FP32 against residual refinement on both matrices.</p>
+    <ol class="steps">
+      <li>Refining both matrices needs 3 Tensor Core GEMMs (A_h·B_h, A_h·R_B, R_A·B_h) plus converting A and B to half and residual (memory-bound, O(n²)).</li>
+      <li>Effective rate ≈ 83 / 3 ≈ 28 TFLOP/s for the GEMM part, ignoring conversions.</li>
+      <li>Speed-up over FP32 ≈ 28 / 14 = <strong>2×</strong>, with accuracy close to FP32 rather than FP16.</li>
+      <li>On an H100 the balance shifts further (FP16 Tensor Cores ~15× FP32 CUDA cores), so the trick pays even more. On a T4 (65 vs 8 TFLOP/s) it's still ~2.7×.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>What does one Volta Tensor Core compute per clock, in which precision?</summary><div class="ans"><p>D = A·B + C on 4×4 matrices (64 FMAs); A and B in FP16, accumulation in FP16 or FP32.</p></div></details>
+  <details><summary><span class="lv">Recall</span>What are AMD's equivalents of an SM, a warp and a Tensor Core?</summary><div class="ans"><p>A compute unit (CU), a 64-thread wavefront, and the Matrix Core Engine.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why accumulate in FP32 even when the inputs are FP16?</summary><div class="ans"><p>Each output sums thousands of products. In FP16 (about 3 significant digits) small products are lost when added to a large running sum, and errors accumulate. FP32 accumulation keeps the sum accurate while the cheap inputs still give the speed.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why did cuBLAS reach only 83 of 125 TFLOP/s in the reading?</summary><div class="ans"><p>Peak assumes every Tensor Core does an MMA every cycle. In practice, loading tiles from memory into fragments, synchronization and data movement (memory bandwidth and shared memory) can't keep all units fed all the time. The Tensor Cores make the GEMM so fast that it becomes partly memory- or latency-bound again.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Compute the T4's FP16 Tensor Core peak: 40 SMs, 8 Tensor Cores per SM, 64 FMA per core per cycle, 1.59 GHz.</summary><div class="ans"><p>40 × 8 × 64 × 2 × 1.59×10⁹ ≈ 65 TFLOP/s, about 8× its 8.1 TFLOP/s FP32 peak.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Could the iPIC3D particle mover use Tensor Cores? Use the reading's conclusion.</summary><div class="ans"><p>Not directly. The mover does per-particle interpolation and updates, not matrix multiplications. The reading notes that particle codes would need reformulating in tensor form. It's also double precision, which needs FP64 Tensor Cores (A100/H100 only).</p></div></details>
+
+  <div class="lab"><h4>Lab: Tensor Cores on the T4</h4>
+    <ol>
+      <li>Write a full WMMA GEMM: each warp computes one 16×16 tile of C (M = N = K = 4096, multiples of 16), with blocks of 4 warps.</li>
+      <li>Verify against your FP32 tiled GEMM (Module 14). Report the maximum relative error and explain it.</li>
+      <li>Time both. Compute TFLOP/s and compare with the 65 TFLOP/s peak.</li>
+      <li>Implement residual refinement on A only, then on both, and measure how the error and time change.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p>Indexing for step 1: warp w in the grid gets tile (tileRow, tileCol); point <code>A + tileRow*16*K</code> and <code>B + tileCol*16</code> at the tile start, and loop k as in 20.3 with <code>lda = K</code>, <code>ldb = N</code>, <code>ldc = N</code>.</p>
+      <p><strong>Expected:</strong> relative errors around 10⁻³ (FP16 inputs have ~3 significant digits), growing slowly with K. The naive WMMA kernel typically reaches only ~10–20 TFLOP/s on a T4, several times faster than your FP32 tiled kernel but well below peak, because it loads fragments straight from global memory with no shared-memory staging. cuBLAS (Module 22) gets much closer to peak.</p>
+      <p><strong>Step 4:</strong> refining A only roughly halves the error; refining both brings it near FP32 accuracy (~10⁻⁶–10⁻⁵ relative), at about 2× and 3× the time.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c20"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 21 ================= -->
+<section class="mod" id="m21" data-title="Low precision & numerics">
+  <div class="eyebrow">Module 21 · Lecture 7 (Low precision &amp; numerics) · <span class="tag">standard sources</span> · Project topic 4</div>
+  <h2>Low precision and numerics</h2>
+  <p class="goal">What you lose and gain with 16-bit and 8-bit numbers, and how training stays stable.</p>
+  <ul class="goals"><li>After this module you can: describe FP32, TF32, FP16, BF16, FP8 and INT8 by their bits, range and precision, predict overflow and underflow, explain mixed-precision training (master weights, loss scaling), and design an accuracy-vs-speed experiment.</li></ul>
+
+  <h3>21.1 Floating-point formats</h3>
+  <p>A float is sign × mantissa × 2<sup>exponent</sup>. The <strong>exponent bits</strong> set the <em>range</em> (how big and small numbers can get); the <strong>mantissa bits</strong> set the <em>precision</em> (how many significant digits).</p>
+  <div class="tbl"><table>
+    <tr><th>Format</th><th>Bits (sign/exp/mantissa)</th><th>Largest value</th><th>Significant decimal digits</th><th>Where</th></tr>
+    <tr><td>FP64</td><td>1 / 11 / 52</td><td class="num">≈ 1.8×10³⁰⁸</td><td class="num">≈ 16</td><td>Scientific computing</td></tr>
+    <tr><td>FP32</td><td>1 / 8 / 23</td><td class="num">≈ 3.4×10³⁸</td><td class="num">≈ 7</td><td>Default; master weights</td></tr>
+    <tr><td>TF32</td><td>1 / 8 / 10 (19 bits used)</td><td class="num">≈ 3.4×10³⁸</td><td class="num">≈ 3</td><td>Ampere+ Tensor Cores for "FP32" inputs</td></tr>
+    <tr><td>FP16</td><td>1 / 5 / 10</td><td class="num">65,504</td><td class="num">≈ 3</td><td>Volta+ Tensor Cores (T4 OK)</td></tr>
+    <tr><td>BF16</td><td>1 / 8 / 7</td><td class="num">≈ 3.4×10³⁸</td><td class="num">≈ 2–3</td><td>Ampere+ (H100, not T4); LLM training</td></tr>
+    <tr><td>FP8 E4M3</td><td>1 / 4 / 3</td><td class="num">448</td><td class="num">≈ 1</td><td>Hopper+; weights and activations</td></tr>
+    <tr><td>FP8 E5M2</td><td>1 / 5 / 2</td><td class="num">57,344</td><td class="num">&lt; 1</td><td>Hopper+; gradients</td></tr>
+    <tr><td>INT8</td><td>integer</td><td class="num">127</td><td>needs a scale factor</td><td>Inference (quantized)</td></tr>
+  </table></div>
+  <ul>
+    <li><strong>FP16 vs BF16:</strong> same 16 bits, different trade-off. FP16 has more precision but a tiny range: values above 65,504 overflow to infinity, and gradients smaller than about 6×10⁻⁸ underflow to zero. BF16 keeps FP32's range with less precision, which is why it became the standard for training: no overflow or underflow, and you can convert from FP32 by just dropping bits.</li>
+    <li><strong>Machine epsilon</strong> (relative gap between neighbouring numbers): FP32 ≈ 1.2×10⁻⁷, FP16 ≈ 9.8×10⁻⁴, BF16 ≈ 7.8×10⁻³. In BF16, 256 + 1 = 256.</li>
+    <li><strong>Fewer bytes</strong> also halves or quarters memory traffic. For memory-bound kernels that's a speed-up even without Tensor Cores (Module 4).</li>
+  </ul>
+
+  <h3>21.2 Mixed-precision training</h3>
+  <p>Training in pure 16-bit fails: weight updates (learning rate × gradient) are often smaller than the weight's precision, so <code>w + Δw == w</code> and the model stops learning. The standard recipe:</p>
+  <ol>
+    <li>Keep <strong>FP32 master weights</strong>.</li>
+    <li>Each step, cast to BF16/FP16 for the forward and backward passes; GEMMs run on Tensor Cores with FP32 accumulation.</li>
+    <li>Apply the gradient update to the FP32 master copy.</li>
+    <li>With <strong>FP16</strong> only, use <strong>loss scaling</strong>: multiply the loss by a factor S (e.g. 1024) so small gradients don't underflow, then divide the gradients by S before the update. Dynamic loss scaling lowers S when infinities appear. BF16 usually doesn't need it, thanks to its range.</li>
+    <li>Keep numerically sensitive operations in FP32: softmax, layernorm statistics, the loss, and large reductions.</li>
+  </ol>
+  <p>llm.c's GPU training follows this pattern with BF16. That's what your project topic 3 measures.</p>
+
+  <h3>21.3 Quantization for inference</h3>
+  <p>For inference only, weights can be stored as INT8 (or 4-bit) with a <strong>scale</strong>: <code>w ≈ scale × q</code> with q ∈ [−127, 127], per tensor, per channel or per block of weights. Memory and bandwidth drop 4× relative to FP32, which directly speeds up memory-bound inference (the llama2.c matvec in Module 15 is exactly this case). Accuracy depends on how outliers are handled, so always measure perplexity or task accuracy, not just speed.</p>
+
+  <div class="worked">
+    <div class="lbl">Worked example: what precision does each tensor need?</div>
+    <p><strong>Problem.</strong> In a GPT-2 training step, values range roughly as follows: weights ±2, activations up to ~10³, attention logits up to ~10⁴ before softmax, gradients from 10⁻¹⁰ to 10⁻². Which fit in FP16, and which in BF16?</p>
+    <ol class="steps">
+      <li><strong>Weights</strong> (±2): fit in both, but updates of ~10⁻⁶ relative are lost in either. Keep FP32 master weights.</li>
+      <li><strong>Activations</strong> (10³): fine in both (FP16 max 65,504).</li>
+      <li><strong>Logits</strong> (10⁴): fit in FP16, but exp(10⁴) overflows everything. Softmax must subtract the max first, and is usually done in FP32 anyway.</li>
+      <li><strong>Gradients</strong> (down to 10⁻¹⁰): below FP16's smallest subnormal (~6×10⁻⁸), so they flush to zero. Needs loss scaling in FP16. BF16 represents them (range like FP32), but with only ~2–3 digits.</li>
+      <li>Conclusion: BF16 + FP32 master weights + FP32 softmax/norms is the robust choice, which is what llm.c does. Your experiment should confirm it by comparing validation loss curves for FP32 and BF16.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Which bits control range and which control precision?</summary><div class="ans"><p>Exponent bits control range; mantissa bits control precision.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why did BF16 replace FP16 for training?</summary><div class="ans"><p>BF16 has FP32's 8-bit exponent, so the same range: no overflow of large activations and no underflow of small gradients, which removes the need for loss scaling. Its lower precision is acceptable because FP32 master weights and FP32 accumulation keep sums accurate.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does reduced precision speed up even kernels that don't use Tensor Cores?</summary><div class="ans"><p>Memory-bound kernels move half (16-bit) or a quarter (8-bit) of the bytes. Their time is set by bytes moved, so they speed up by about 2× or 4×.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Compute 1000 + 0.5 in FP16 and in BF16.</summary><div class="ans"><p>FP16: near 1000 the spacing is 0.5 (2⁹ × 2⁻¹⁰), so 1000.5 is exact. BF16: near 1000 the spacing is 4 (2⁹ × 2⁻⁷), so 1000.5 rounds to 1000. A small update is completely lost.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>What should your BF16 llm.c experiment measure to make a convincing claim?</summary><div class="ans"><p>Time per step and tokens/s for FP32 and BF16 on the same GPU (the H100, since the T4 lacks BF16); memory use; validation loss/perplexity curves over the same number of steps; and, for one or two key kernels, ncu throughput, to explain where the speed-up comes from (Tensor Cores vs fewer bytes).</p></div></details>
+
+  <div class="lab"><h4>Lab: see rounding happen</h4>
+    <ol>
+      <li>Write a kernel that sums 1,000,000 copies of 0.0001 in FP32, FP16 (<code>__half</code>, <code>cuda_fp16.h</code>) and BF16 (<code>__nv_bfloat16</code>, <code>cuda_bf16.h</code>) using a single thread and a running sum. Predict each result first.</li>
+      <li>Repeat with a tree reduction (Module 13) in each precision.</li>
+      <li>Explain why the tree reduction is so much more accurate.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p>The exact answer is 100. <strong>Sequential:</strong> FP32 gives roughly 100.9–101, not 100 (each addition rounds, and the error grows as the sum gets large relative to 0.0001). FP16 stalls at 0.25: once the sum's spacing exceeds 2 × 0.0001, adding 0.0001 rounds back to the same value. BF16 stalls far earlier, around 0.03. (BF16 compiles on the T4 as a storage type, emulated in FP32 arithmetic and rounded back, so the result still shows the format's precision.)</p>
+      <p><strong>Tree:</strong> each addition combines numbers of similar size, so the errors stay small: FP32 is close to 100.0000, FP16 within about ±0.1 of 100, BF16 within a few units. This is why parallel reductions, and FP32 accumulation in Tensor Cores, matter for accuracy, not only for speed.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c21"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 22 ================= -->
+<section class="mod" id="m22" data-title="CUDA libraries">
+  <div class="eyebrow">Module 22 · Tutorials: CUDA Libraries, Random Numbers with cuRAND · Lecture 7 (Library ecosystem, CUTLASS) · Project topics 3 and 5</div>
+  <h2>CUDA libraries: cuBLAS, cuSPARSE, cuFFT, cuRAND, CUTLASS</h2>
+  <p class="goal">Expert-tuned building blocks, and the handful of conventions you have to get right to use them.</p>
+  <ul class="goals"><li>After this module you can: follow the library workflow, call cuBLAS GEMM correctly from row-major C code (the column-major trick), enable Tensor Cores through cuBLAS, generate random numbers with cuRAND in kernels, and say what CUTLASS, cuSPARSE, cuFFT and Thrust are for.</li></ul>
+
+  <h3>22.1 The common workflow (from the tutorial)</h3>
+  <ol>
+    <li>Create a <strong>handle</strong> (<code>cublasCreate</code>): an opaque object holding the library's context. Optionally set its stream (<code>cublasSetStream</code>).</li>
+    <li>Allocate device memory.</li>
+    <li>Convert inputs to a supported format (layout, sparse format).</li>
+    <li>Copy inputs to the device (<code>cudaMemcpy</code> or <code>cublasSetMatrix</code>/<code>SetVector</code>).</li>
+    <li>Configure (descriptors, transposes, algorithms).</li>
+    <li>Execute.</li>
+    <li>Retrieve results.</li>
+    <li>Convert back to your format.</li>
+    <li>Release resources, and reuse handles and buffers across calls, since creating them is expensive (the same lesson as Module 15).</li>
+  </ol>
+
+  <h3>22.2 cuBLAS and column-major order</h3>
+  <p>cuBLAS follows Fortran BLAS: <strong>column-major storage</strong>, but zero-based pointers. Levels: 1 = vector ops (<code>axpy</code>, <code>dot</code>), 2 = matrix-vector (<code>gemv</code>), 3 = matrix-matrix (<code>gemm</code>). The <strong>leading dimension</strong> (<code>lda</code>) is the stride between columns, normally the number of rows.</p>
+  <p><strong>The trick for row-major C code.</strong> A row-major M × N array, read as column-major, is its transpose (N × M). Since (A·B)ᵀ = Bᵀ·Aᵀ, ask cuBLAS for Cᵀ = Bᵀ·Aᵀ by simply swapping the operands. No copies, no transposes:</p>
+<pre><code>// row-major: C (M x P) = A (M x N) * B (N x P)
+cublasHandle_t h; cublasCreate(&amp;h);
+const float alpha = 1.0f, beta = 0.0f;
+cublasSgemm(h, CUBLAS_OP_N, CUBLAS_OP_N,
+            P, M, N,              // dimensions of the column-major problem C^T = B^T * A^T
+            &amp;alpha,
+            d_B, P,               // "first" matrix is B, leading dim P
+            d_A, N,               // "second" matrix is A, leading dim N
+            &amp;beta,
+            d_C, P);              // C, leading dim P
+cublasDestroy(h);</code></pre>
+  <p>Getting this right first time is rare. Always check against your CPU reference. The tutorial's <code>cublasSgemv</code> example works on genuinely column-major data, which is why it passes <code>CUBLAS_OP_N</code> with <code>lda = M</code>.</p>
+  <h4>Tensor Cores through cuBLAS</h4>
+  <ul>
+    <li><code>cublasGemmEx</code> takes separate data types for inputs, output and compute: e.g. A, B in <code>CUDA_R_16F</code> or <code>CUDA_R_16BF</code>, C in <code>CUDA_R_32F</code>, compute type <code>CUBLAS_COMPUTE_32F</code>. cuBLAS picks Tensor Core kernels automatically when the types and alignment allow.</li>
+    <li>For FP32 data on Ampere+, <code>CUBLAS_COMPUTE_32F_FAST_TF32</code> (or <code>cublasSetMathMode(h, CUBLAS_TF32_TENSOR_OP_MATH)</code>) runs FP32 GEMMs on Tensor Cores in TF32.</li>
+    <li><strong>cuBLASLt</strong> is the more flexible interface (epilogues such as bias + GELU fused into the GEMM, FP8). llm.c uses it for its matmuls.</li>
+  </ul>
+
+  <h3>22.3 cuRAND: random numbers inside kernels (from the tutorial)</h3>
+  <p>Random number generators are sequential, so each thread needs its <strong>own state</strong>, initialized so that threads produce different, independent streams:</p>
+<pre><code>#include &lt;curand_kernel.h&gt;
+__global__ void init(curandState *st, unsigned long long seed) {
+  int id = blockIdx.x * blockDim.x + threadIdx.x;
+  curand_init(seed, id, 0, &amp;st[id]);         // same seed, subsequence = thread id
+}
+__global__ void monteCarloPi(curandState *st, int trials, unsigned long long *hits) {
+  int id = blockIdx.x * blockDim.x + threadIdx.x;
+  curandState s = st[id];                    // copy state to registers (faster)
+  unsigned int local = 0;
+  for (int t = 0; t &lt; trials; t++) {
+    float x = curand_uniform(&amp;s), y = curand_uniform(&amp;s);
+    local += (x * x + y * y &lt;= 1.0f);
+  }
+  st[id] = s;                                // save state if you'll generate more later
+  atomicAdd(hits, (unsigned long long)local); // one atomic per thread (Module 13)
+}
+// pi ≈ 4 * hits / (threads * trials)</code></pre>
+  <ul>
+    <li>The tutorial seeds with <code>seed = id</code>. The documented best practice is the <strong>same seed with a different subsequence</strong> per thread (as above), which guarantees non-overlapping streams.</li>
+    <li><code>curand_init</code> is slow (it skips ahead in the sequence), so do it once in a separate kernel and reuse the states.</li>
+    <li>For filling large arrays, the host API (<code>curandCreateGenerator</code>, <code>curandGenerateUniform</code>) is simpler and faster.</li>
+  </ul>
+
+  <h3>22.4 The rest of the ecosystem</h3>
+  <div class="tbl"><table>
+    <tr><th>Library</th><th>Use it for</th><th>Note</th></tr>
+    <tr><td><strong>cuSPARSE</strong></td><td>SpMV, SpMM in CSR/COO/… (Module 19)</td><td>Generic API: create sparse/dense descriptors, query buffer size, then compute.</td></tr>
+    <tr><td><strong>cuSPARSELt</strong></td><td>2:4 structured sparse GEMM on Tensor Cores</td><td>Ampere+.</td></tr>
+    <tr><td><strong>cuFFT</strong></td><td>Fast Fourier transforms (signal processing, spectral solvers, fast convolution)</td><td>Create a "plan" once, execute many times.</td></tr>
+    <tr><td><strong>cuDNN</strong></td><td>Neural-network primitives (convolution, attention, normalization)</td><td>Used by PyTorch; llm.c can use its attention.</td></tr>
+    <tr><td><strong>Thrust / CUB</strong></td><td>Sort, scan, reduce, transform with STL-like C++</td><td><code>thrust::reduce(d_vec.begin(), d_vec.end())</code> replaces your hand-written reduction.</td></tr>
+    <tr><td><strong>CUTLASS</strong></td><td>Build your own high-performance GEMM-like kernels</td><td>C++ templates, see below.</td></tr>
+    <tr><td><strong>NCCL</strong></td><td>Communication between GPUs (all-reduce etc.)</td><td>Module 23.</td></tr>
+  </table></div>
+  <p><strong>CUTLASS</strong> exposes the same hierarchy you built by hand in Module 14, one level per layer: a <em>threadblock tile</em> staged through shared memory, divided into <em>warp tiles</em>, each computed with Tensor Core <em>MMA instructions</em> (the WMMA idea of Module 20), plus an <em>epilogue</em> that can fuse bias, activation or scaling before writing C. You choose tile sizes and data types as template parameters. Use it when cuBLAS doesn't offer the fused operation you need; for a plain GEMM, cuBLAS is usually as fast and far simpler. (The course reading used an early CUTLASS built on WMMA.)</p>
+
+  <div class="worked">
+    <div class="lbl">Worked example: a fair hand-written vs library comparison (project topic 2)</div>
+    <ol class="steps">
+      <li><strong>Same problem:</strong> identical M, N, K, data types, layout and GPU for all variants: naive, tiled (yours), cuBLAS FP32, cuBLAS TF32 or BF16 on the H100.</li>
+      <li><strong>Same timing:</strong> CUDA events around the kernel or library call only, after a warm-up call (cuBLAS's first call includes set-up), median of 10+ repeats.</li>
+      <li><strong>Report GFLOP/s</strong> = 2MNK / time, and % of the relevant peak (FP32 CUDA cores for FP32, Tensor Core peak for TF32/BF16).</li>
+      <li><strong>Explain with ncu:</strong> cuBLAS kernels show high Tensor Core or FMA pipe utilization and high shared-memory throughput; your tiled kernel shows where it stalls (Warp State Statistics).</li>
+      <li><strong>Check correctness</strong> against an FP64 CPU reference, and report errors for each precision.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>What is a cuBLAS handle, and why create it only once?</summary><div class="ans"><p>An opaque host-side object with the library's context (device, stream, settings, workspace). Creating it is expensive, so make it once and reuse it for every call.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does swapping A and B let cuBLAS compute a row-major product?</summary><div class="ans"><p>Row-major memory read as column-major gives the transpose. cuBLAS therefore sees Aᵀ and Bᵀ; computing Bᵀ·Aᵀ = (A·B)ᵀ produces Cᵀ in column-major order, which is exactly C in row-major order.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why must each cuRAND thread have its own state, initialized differently?</summary><div class="ans"><p>A generator's state advances with every number. Sharing it would be a race (Module 13); identical initialization would give every thread the same numbers. Different subsequences of one seed give independent, reproducible streams.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Write the <code>cublasSgemv</code> call for row-major W (d × n), y = W·x.</summary><div class="ans"><p>Row-major W looks to cuBLAS like a column-major n × d matrix (Wᵀ) with leading dimension n. Ask for the transpose of that: <code>cublasSgemv(h, CUBLAS_OP_T, n, d, &amp;alpha, d_W, n, d_x, 1, &amp;beta, d_y, 1);</code> (m = n rows and n = d columns of the column-major view).</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>When would you use CUTLASS instead of cuBLAS in llm.c?</summary><div class="ans"><p>When you want something cuBLAS doesn't offer, e.g. a GEMM with a custom fused epilogue (bias + GELU + a residual add) to avoid an extra pass through memory. For a plain GEMM, cuBLAS/cuBLASLt is the right choice.</p></div></details>
+
+  <div class="lab"><h4>Lab: your GEMM against cuBLAS, and Monte Carlo π</h4>
+    <ol>
+      <li>Add a cuBLAS path to your Module 14 tiled GEMM program using the row-major trick. Compile with <code>-lcublas</code>. Verify it against the CPU reference.</li>
+      <li>Time naive, tiled and cuBLAS at 1024³ and 4096³ (with a warm-up call). Compute GFLOP/s and % of the T4's 8.1 TFLOP/s.</li>
+      <li>Add a <code>cublasGemmEx</code> call with FP16 inputs and FP32 output. Compare speed and error.</li>
+      <li>Run the Monte Carlo π program with 65,536 threads × 1,000 trials. How does the error shrink as you multiply trials by 100?</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p><strong>Step 2, expected on a T4 at 4096³:</strong> naive ~0.5–1 TFLOP/s, tiled ~1–2 TFLOP/s, cuBLAS FP32 ~4–5.5 TFLOP/s (50–70% of peak). The gap to cuBLAS comes from register tiling (each thread computes many outputs), double-buffered shared memory and vectorized loads, techniques CUTLASS exposes.</p>
+      <p><strong>Step 3:</strong> FP16 Tensor Core GEMM via <code>cublasGemmEx</code>: often 20–40 TFLOP/s on a T4, with relative errors around 10⁻³ (Module 21).</p>
+      <p><strong>Step 4:</strong> π is accurate to about 3–4 digits with 6.5×10⁷ samples. Monte Carlo error shrinks as 1/√samples, so 100× more trials gives only one more correct digit (10× smaller error).</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c22"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 23 ================= -->
+<section class="mod" id="m23" data-title="Triton & multi-GPU">
+  <div class="eyebrow">Module 23 · Lecture 7 (Triton, multi-GPU) · Lecture 3.3.1 (Multi-GPU Programming with CUDA) · <span class="tag">Triton: standard sources</span></div>
+  <h2>Triton, and programming several GPUs</h2>
+  <p class="goal">A higher-level way to write GPU kernels, and how to spread work over more than one GPU.</p>
+  <ul class="goals"><li>After this module you can: explain Triton's block-level programming model and write a simple Triton kernel, use <code>cudaSetDevice</code> and streams to drive several GPUs, enable and use peer-to-peer copies, and explain data-parallel training with all-reduce.</li></ul>
+
+  <h3>23.1 Triton: programming blocks, not threads</h3>
+  <p><strong>Triton</strong> (from OpenAI, used heavily inside PyTorch) is a Python-embedded language for GPU kernels. In CUDA you write what <em>one thread</em> does; in Triton you write what <em>one program instance</em> does to a whole <em>block of data</em>, as vector operations. The compiler then decides how to map that onto threads, warps, shared memory and Tensor Cores: the coalescing, tiling and memory staging you did by hand in Part 2.</p>
+<pre><code>import torch, triton, triton.language as tl
+
+@triton.jit
+def add_kernel(x_ptr, y_ptr, out_ptr, n, BLOCK: tl.constexpr):
+    pid = tl.program_id(0)                       # like blockIdx.x
+    offs = pid * BLOCK + tl.arange(0, BLOCK)     # a whole vector of indices
+    mask = offs &lt; n                              # replaces the "if (i &lt; n)" bounds check
+    x = tl.load(x_ptr + offs, mask=mask)
+    y = tl.load(y_ptr + offs, mask=mask)
+    tl.store(out_ptr + offs, x + y, mask=mask)
+
+n = 1 &lt;&lt; 24
+x = torch.rand(n, device="cuda"); y = torch.rand(n, device="cuda"); out = torch.empty_like(x)
+grid = (triton.cdiv(n, 1024),)                   # like (n + BLOCK - 1) / BLOCK
+add_kernel[grid](x, y, out, n, BLOCK=1024)</code></pre>
+  <ul>
+    <li><strong>Mapping to CUDA:</strong> <code>program_id</code> ≈ blockIdx; <code>tl.arange</code> ≈ the threadIdx range; <code>mask</code> ≈ the bounds check; there's no explicit shared memory and no <code>__syncthreads</code>.</li>
+    <li>For matrix multiply, <code>tl.dot(a_block, b_block)</code> on 2D blocks compiles to Tensor Core instructions, and <code>@triton.autotune</code> searches over block sizes automatically.</li>
+    <li><strong>Trade-off:</strong> much faster to write and often close to cuBLAS for GEMM-like and fused element-wise kernels (FlashAttention has a Triton version), but less control than CUDA, and debugging generated code is harder. It's the "productivity" learning outcome of the course.</li>
+  </ul>
+
+  <h3>23.2 Several GPUs in one node (from the slides)</h3>
+  <p>Multi-GPU systems are connected two ways: GPUs in one node over PCIe or <strong>NVLink</strong> (much faster, hundreds of GB/s), and nodes over a network (InfiniBand). The lecture covers one node. The workflow:</p>
+  <ol>
+    <li>Count devices: <code>cudaGetDeviceCount(&amp;ngpus)</code>.</li>
+    <li>For each device: <code>cudaSetDevice(d)</code>, then create its stream and allocate its memory. Every CUDA call after <code>cudaSetDevice</code> targets that device.</li>
+    <li>Launch work on each GPU through its stream. Calls are asynchronous, so you can switch device while earlier GPUs are still running, and all GPUs work at once.</li>
+    <li>Wait on each stream.</li>
+  </ol>
+<pre><code>for (int d = 0; d &lt; ngpus; d++) {
+  cudaSetDevice(d);
+  int off = d * chunk;
+  cudaMemcpyAsync(d_a[d], h_a + off, chunk * 4, cudaMemcpyHostToDevice, s[d]);   // pinned h_a
+  vecAdd&lt;&lt;&lt;(chunk + 255) / 256, 256, 0, s[d]&gt;&gt;&gt;(d_a[d], d_b[d], d_c[d], chunk);
+  cudaMemcpyAsync(h_c + off, d_c[d], chunk * 4, cudaMemcpyDeviceToHost, s[d]);
+}
+for (int d = 0; d &lt; ngpus; d++) { cudaSetDevice(d); cudaStreamSynchronize(s[d]); }</code></pre>
+  <h4>Peer-to-peer (P2P)</h4>
+<pre><code>int can; cudaDeviceCanAccessPeer(&amp;can, 0, 1);          // can GPU 0 access GPU 1?
+if (can) { cudaSetDevice(0); cudaDeviceEnablePeerAccess(1, 0); }   // one direction only
+cudaMemcpyPeerAsync(d_dst_on1, 1, d_src_on0, 0, bytes, s0);   // GPU0 → GPU1 without the host</code></pre>
+  <p>Access is enabled one direction at a time. With P2P, kernels on GPU 0 can even dereference pointers into GPU 1's memory. Without it, copies go through host memory and are much slower. NVIDIA's <code>p2pBandwidthLatencyTest</code> sample measures what your node supports.</p>
+
+  <h3>23.3 Data-parallel training and NCCL</h3>
+  <p>The most common multi-GPU pattern in ML is <strong>data parallelism</strong>: every GPU holds a full copy of the model and processes a different slice of the batch. After the backward pass, the gradients are averaged across GPUs with an <strong>all-reduce</strong>, so every replica applies the same update. <strong>NCCL</strong> implements all-reduce efficiently over NVLink, PCIe and networks (ring and tree algorithms). For a ring all-reduce over G GPUs, each GPU sends and receives about 2·(G−1)/G times the gradient size, nearly constant in G, which is why it scales. llm.c supports multi-GPU training this way (NCCL, with MPI to launch processes). Larger models also split the model itself (tensor or pipeline parallelism).</p>
+
+  <div class="worked">
+    <div class="lbl">Worked example: will 2 GPUs train twice as fast?</div>
+    <p><strong>Problem.</strong> GPT-2 124M has about 124M parameters. In BF16 the gradients are about 250 MB. One training step takes 200 ms of compute on one GPU. Two GPUs are connected by (a) NVLink at ~300 GB/s or (b) PCIe at ~25 GB/s. Estimate the step time with data parallelism.</p>
+    <ol class="steps">
+      <li>Compute per GPU: each processes half the batch, so about 100 ms.</li>
+      <li>Ring all-reduce traffic per GPU: 2·(2−1)/2 × 250 MB = 250 MB.</li>
+      <li>(a) NVLink: 250 MB / 300 GB/s ≈ 0.8 ms, so the step is ≈ 101 ms: about <strong>2×</strong> faster.</li>
+      <li>(b) PCIe: 250 MB / 25 GB/s = 10 ms, so ≈ 110 ms: about <strong>1.8×</strong>. Overlapping the all-reduce with the backward pass (as frameworks do, layer by layer) hides most of even this.</li>
+      <li>Amdahl again: anything not split (data loading, the optimizer if not sharded) limits scaling as GPUs are added.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>In Triton, what replaces blockIdx and the <code>if (i &lt; n)</code> check?</summary><div class="ans"><p><code>tl.program_id(axis)</code>, and a <code>mask</code> passed to <code>tl.load</code>/<code>tl.store</code>.</p></div></details>
+  <details><summary><span class="lv">Recall</span>Which call selects the GPU that subsequent CUDA calls target?</summary><div class="ans"><p><code>cudaSetDevice(id)</code>.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>What does the Triton compiler do that you did by hand in Part 2?</summary><div class="ans"><p>It maps block operations onto threads with coalesced accesses, stages data in shared memory, inserts synchronization, picks vector widths, and uses Tensor Cores for <code>tl.dot</code>. You specify the block size (or autotune it); it handles the rest.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is peer access enabled per direction?</summary><div class="ans"><p><code>cudaDeviceEnablePeerAccess</code> maps the peer's memory into the <em>current</em> device's address space, which is a one-way mapping. For both directions, call it from each device.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Your 4-GPU vector add is no faster than 1 GPU. Most likely reason?</summary><div class="ans"><p>It's dominated by host↔device PCIe transfers, which may share the same host links, and the kernel is tiny. Also check that you used pinned memory and per-device streams, and didn't synchronize inside the launch loop. Multi-GPU pays off when each GPU does a lot of compute per byte transferred.</p></div></details>
+
+  <div class="lab"><h4>Lab: Triton on Colab</h4>
+    <ol>
+      <li>In a Colab Python cell (T4 runtime): <code>pip install triton</code> (usually preinstalled with PyTorch), then run <code>add_kernel</code> above and check it against <code>x + y</code>.</li>
+      <li>Time it with <code>triton.testing.do_bench</code> and compute GB/s. Compare with your CUDA vector add's kernel-only bandwidth.</li>
+      <li>Try BLOCK = 128, 256, 1024 and 4096. What changes?</li>
+      <li>On the cluster, if your node has more than one GPU (MIG slices count as separate devices), run <code>cudaGetDeviceCount</code> and the multi-GPU vector add. MIG slices don't support P2P; note what you find.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p><strong>Step 2:</strong> both reach ~250–280 GB/s at n = 2²⁴ on a T4, the same memory-bound limit (Module 4). Triton matches hand-written CUDA for this simple kernel.</p>
+      <p><strong>Step 3:</strong> small blocks (128) are slightly slower (more programs, less work each); 1024–4096 are about equally good. Large blocks give each program more elements, which Triton vectorizes across its warps (its <code>num_warps</code> setting).</p>
+      <p><strong>Step 4:</strong> MIG instances appear as separate devices only if the cluster assigns you several, and <code>cudaDeviceCanAccessPeer</code> returns 0 between MIG slices.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c23"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 24 ================= -->
+<section class="mod" id="m24" data-title="Final drill: project & exam">
+  <div class="eyebrow">Module 24 · Review of Parts 2–4 · Oral exam (bonus) · Project presentation</div>
+  <h2>Final drill: bonus oral exam and project defence</h2>
+  <p class="goal">Answer each out loud in about a minute, with no notes. Brackets point to the module to reread. Do this weekly from December, together with Module 11.</p>
+
+  <h3>Memory and kernels</h3>
+  <details><summary><span class="lv l2">Explain</span>What is coalescing, and how do you check whether a kernel has it? [12]</summary><div class="ans"><p>A warp's 32 accesses combine into few 32-byte sectors when they fall on consecutive addresses. Check in ncu's Memory Workload Analysis: about 4 sectors per request for 4-byte loads means coalesced; up to 32 means fully scattered. SourceCounters points to the line.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Walk through your tiled matmul's phases and both barriers, and derive its global reads. [14]</summary><div class="ans"><p>Per phase: load one A and one B element per thread into shared tiles; barrier (tiles complete); T multiply-adds from shared memory; barrier (no overwrite while in use). Reads fall from 2MNP to 2MNP/T. Explain non-square tiles from how many grid columns and rows reload each A and B element.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Why wasn't your tiled kernel T times faster than naive? [12, 14]</summary><div class="ans"><p>The naive kernel was partly rescued by L1/L2 caching, so its real DRAM traffic was below 2MNP. The tiled kernel adds barriers and shared-memory traffic, and becomes limited by shared-memory bandwidth, latency and occupancy rather than DRAM. Back it with ncu numbers.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>What's a race condition, and when do you need atomics? [13]</summary><div class="ans"><p>Several threads doing read-modify-write on the same location without coordination lose updates, with results depending on timing. Use atomics for shared counters or accumulators, after reducing within blocks to keep atomics few.</p></div></details>
+
+  <h3>Whole program</h3>
+  <details><summary><span class="lv l3">Apply</span>Your naive llama2.c port is slower than the CPU. Explain with the nsys profile, then name your fix and the metric that proved it worked. [15]</summary><div class="ans"><p>Per-call cudaMalloc/cudaFree and re-copying constant weights dominate API time and H2D bytes, while kernels are a few percent of GPU time. Fix: allocate once and copy weights once. Evidence: malloc call counts and H2D bytes per token drop, and tokens/s rises.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>When do streams help, and what limits them? [16]</summary><div class="ans"><p>When copies and kernels take comparable time: they run concurrently on separate engines. The floor is the busiest single resource (often the H2D link). Requires pinned memory and non-default streams.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>How do you recognize and fix a launch-bound program? [17]</summary><div class="ans"><p>Many short kernels with launch time ≥ kernel time and gaps on the timeline. Fix by doing more work per launch (fusion, more steps per kernel) or with CUDA Graphs.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>What does Unified Memory do on a page fault, and how do you avoid fault costs? [18]</summary><div class="ans"><p>The GPU stalls the warp while the driver migrates the page over PCIe and updates page tables. Avoid it with <code>cudaMemPrefetchAsync</code> before kernels and <code>cudaMemAdvise</code> hints, and by not touching data on the CPU between kernels.</p></div></details>
+
+  <h3>Project (llm.c)</h3>
+  <details><summary><span class="lv l3">Apply</span>Explain the speed-up from BF16 in llm.c: where does it come from, and why isn't it the Tensor Core ratio? [20, 21]</summary><div class="ans"><p>GEMMs move to Tensor Cores (much higher peak), and memory-bound kernels move half the bytes. The overall speed-up is smaller than the GEMM speed-up because of Amdahl: softmax, layernorm, element-wise ops and the optimizer don't use Tensor Cores and stay memory-bound, some in FP32. Support it with the per-kernel nsys breakdown before and after.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>How did you check that an optimization didn't break training? [21]</summary><div class="ans"><p>Kernel-level: compare outputs against the reference with max absolute and relative error. Model-level: validation loss/perplexity curves for baseline and optimized runs over the same steps and data. Explain any small difference by rounding.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Why does your fused attention kernel save memory, and how does it relate to tiling? [14, 20]</summary><div class="ans"><p>It computes attention tile by tile in shared memory with an online softmax, so the N × N score matrix is never written to global memory. Memory drops from O(N²) to O(N), and traffic falls the same way tiled matmul's does. It's Module 14's idea applied to attention.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>An examiner asks: "Why not just use PyTorch?" Answer. [10, 22, 23]</summary><div class="ans"><p>The project's purpose is to understand and measure where time goes and why. llm.c exposes every kernel, so each optimization can be isolated, measured and explained with roofline, occupancy and Amdahl arguments. The same techniques are what PyTorch, cuBLAS, Triton and FlashAttention use internally.</p></div></details>
+  <label class="check"><input type="checkbox" id="c24"> I can answer all of these without notes</label>
 </section>
 
 </main>
