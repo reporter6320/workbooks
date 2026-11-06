@@ -5,6 +5,7 @@
 - Generates a root index.html listing all pages.
 """
 import html
+import json
 import re
 import shutil
 from pathlib import Path
@@ -57,7 +58,13 @@ def main() -> None:
             (dest / "index.html").write_text(wrap(title, "<p><a href='../../'>← All workbooks</a></p>" + body), encoding="utf-8")
         entries.append((folder.name, page_title(folder)))
     items = "".join(f"<li><a href='pages/{s}/'>{html.escape(t)}</a></li>" for s, t in entries) or "<li>No pages yet.</li>"
-    (OUT / "index.html").write_text(wrap("Workbooks", f"<h1>Workbooks</h1><ul class='pages'>{items}</ul>"), encoding="utf-8")
+    links_file = ROOT / "links.json"
+    links = json.loads(links_file.read_text(encoding="utf-8")) if links_file.exists() else []
+    more = ""
+    if links:
+        li = "".join(f"<li><a href='{html.escape(l['url'], quote=True)}'>{html.escape(l['title'])}</a></li>" for l in links)
+        more = f"<h2>More sites</h2><ul class='pages'>{li}</ul>"
+    (OUT / "index.html").write_text(wrap("Workbooks", f"<h1>Workbooks</h1><ul class='pages'>{items}</ul>{more}"), encoding="utf-8")
     (OUT / ".nojekyll").touch()
     print(f"Built {len(entries)} page(s) into {OUT}")
 
