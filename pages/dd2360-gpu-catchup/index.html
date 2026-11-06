@@ -132,7 +132,7 @@ img{max-width:100%}[hidden]{display:none!important}
   <p class="rule">From the course's grading table (Logistics, slide 11): <strong>an A needs all three of</strong> (1) a pass on all 4 assignments, (2) all 3 bonus exercises, and (3) an A on the final project. Every other combination caps you lower: missing one bonus gives at most C, and a B project gives a B.</p>
   <div class="tbl"><table>
     <tr><th>Requirement</th><th>What it takes</th><th>What decides it</th><th>Workbook support</th></tr>
-    <tr><td>Pass all 4 assignments</td><td>Due Nov 6, Nov 20, Dec 4, Dec 18. No late submissions unless approved in advance.</td><td>Correct code, and answers you can defend without AI</td><td>Modules 5–9 (A1); Modules 12–15 (A2); more ahead of A3–A4</td></tr>
+    <tr><td>Pass all 4 assignments</td><td>Due Nov 6, Nov 20, Dec 4, Dec 18. No late submissions unless approved in advance.</td><td>Correct code, and answers you can defend without AI</td><td>Modules 5–9 (A1); Modules 12–15 (A2); 16–19 (A3 topics); more ahead of A4</td></tr>
     <tr><td>All 3 bonus exercises</td><td>Submitted inside Assignments 2, 3 and 4, then <strong>one oral examination</strong> that you sign up for</td><td>Whether you can explain your bonus code live</td><td>Module 11 drill; Module 15 prepares bonus 1 (iPIC3D mover)</td></tr>
     <tr><td>Project grade A</td><td>Proposal Nov 13, report Jan 5, <strong>presentation Jan 7 or 8</strong> (optional for others, required for A/B). Your individual llm.c project is approved.</td><td>Depth of analysis on ≥ 3 topics, measured and explained</td><td>Modules 4 and 8 now; project modules on tiling, cuBLAS, mixed precision, Tensor Cores</td></tr>
   </table></div>
@@ -1612,6 +1612,366 @@ dim3 block(T, T), grid((P + T - 1) / T, (M + T - 1) / T);</code></pre>
   <label class="check"><input type="checkbox" id="c15"> I can explain this module without notes</label>
 </section>
 
+<!-- ================= PART 3 DIVIDER ================= -->
+<section class="plan" id="part3" style="margin-top:56px">
+  <div class="eyebrow">Part 3 · Lectures 3.1–3.2, 4–6 · Main topics 2 and 3</div>
+  <h2>Concurrency, launch overhead, Unified Memory and sparsity</h2>
+  <p>Part 2 made individual kernels fast. Part 3 is about the whole program: overlapping copies with computation, removing launch overhead, letting the runtime move data for you, and handling sparse data where most values are zero. Unified Memory is also one of the project topics.</p>
+  <p class="src"><strong>Sources.</strong> Modules 16 and 18 follow the course slides (3.1.2 Streams &amp; Asynchronous Copy, 3.2.1 Unified Memory). Modules 17 and 19 cover topics where you sent only Canvas topic lists (scheduling, synchronization, CUDA Graphs; Lecture 6: SpMV, SpMM, embedding lookup, structured sparsity). Those are written from the CUDA Programming Guide and standard references. Check them against the lecture recordings if any are available.</p>
+</section>
+
+<!-- ================= MODULE 16 ================= -->
+<section class="mod" id="m16" data-title="Streams & async copies">
+  <div class="eyebrow">Module 16 · Lecture 3.1.2 (Streams &amp; Asynchronous Copy) · Visualize timelines tutorial</div>
+  <h2>Streams: overlapping copies and computation</h2>
+  <p class="goal">Keep the PCIe link and the GPU busy at the same time, instead of taking turns.</p>
+  <ul class="goals"><li>After this module you can: explain what a stream is and how the default stream behaves, use pinned memory and <code>cudaMemcpyAsync</code>, pipeline a computation in segments, synchronize streams correctly, time with CUDA events, and predict the speed-up from overlap.</li></ul>
+
+  <h3>16.1 The problem: everything takes turns</h3>
+  <p>So far, each program copies A in, copies B in, computes, then copies C out, one after another. While data crosses PCIe the GPU is idle, and while the GPU computes the PCIe link is idle. For vector add (Module 4) the copies are about 95% of the time, so the GPU sits idle almost always.</p>
+  <p>The fix is <strong>pipelining</strong>: split the arrays into segments. While segment 1 is being computed, segment 2 is being copied in and segment 0's result copied out. That's the slides' A.0/A.1/A.2 picture.</p>
+  <div class="svgbox">
+  <svg viewBox="0 0 640 200" role="img" aria-label="Serial versus pipelined execution: with 3 streams, copies of one segment overlap computation of another">
+    <text x="0" y="16">serial (default stream)</text>
+    <rect x="0" y="24" width="180" height="22" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="8" y="40">H2D A, B</text>
+    <rect x="180" y="24" width="60" height="22" fill="var(--accent)"/><text x="186" y="40" fill="var(--bg)">kernel</text>
+    <rect x="240" y="24" width="90" height="22" fill="var(--warn-soft)" stroke="var(--warn)"/><text x="248" y="40">D2H C</text>
+    <text x="0" y="78">pipelined (3 streams)</text>
+    <g id="pipe"></g>
+    <text x="0" y="192" class="mut">copy engines and compute units work at the same time; total ≈ the longest single resource + a little ramp-up</text>
+  </svg></div>
+
+  <h3>16.2 Streams and the default stream</h3>
+  <p>A <strong>stream</strong> is a queue of GPU operations (copies and kernels). Operations in the <em>same</em> stream run in order. Operations in <em>different</em> streams may run at the same time. This is task parallelism on top of the data parallelism inside each kernel.</p>
+  <p>If you don't name a stream, you use the <strong>default (null) stream</strong>, which is special:</p>
+  <ul>
+    <li>No operation in the default stream starts until all previously issued operations in <em>any</em> stream have finished.</li>
+    <li>An operation in the default stream must finish before any later operation in any stream starts.</li>
+  </ul>
+  <p>So one default-stream call in the middle of your pipeline <strong>serializes everything</strong>. Since CUDA 7 you can compile with <code>--default-stream per-thread</code>, which gives each host thread its own default stream that behaves like a normal stream.</p>
+
+  <h3>16.3 The API</h3>
+<pre><code>cudaStream_t s[NS];
+for (int k = 0; k &lt; NS; k++) cudaStreamCreate(&amp;s[k]);
+
+// pinned (page-locked) host memory: REQUIRED for copies to overlap
+float *h_a; cudaMallocHost(&amp;h_a, bytes);       // free with cudaFreeHost
+
+cudaMemcpyAsync(d_a, h_a, bytes, cudaMemcpyHostToDevice, s[k]);   // 5th arg: stream
+kernel&lt;&lt;&lt;grid, block, 0, s[k]&gt;&gt;&gt;(…);                              // 4th launch arg: stream
+cudaMemcpyAsync(h_c, d_c, bytes, cudaMemcpyDeviceToHost, s[k]);
+
+cudaStreamSynchronize(s[k]);   // wait for stream k only
+cudaDeviceSynchronize();       // wait for all streams
+cudaStreamDestroy(s[k]);</code></pre>
+  <div class="key"><strong>Why pinned memory?</strong> Normal (pageable) host memory can be moved or swapped by the OS, so the GPU's DMA engine can't read it directly. The driver first copies it into a hidden pinned buffer, and that copy happens synchronously on the CPU. With <code>cudaMallocHost</code> the memory is locked in place, and the DMA engine reads it directly while the CPU and GPU carry on. Pinned copies are also faster, often 1.5–2× the bandwidth. Don't pin huge amounts, though: it takes physical RAM away from the OS.</div>
+  <p>The two requirements from the slides: the kernel and the copy to be overlapped must be in <strong>different non-default streams</strong>, and the host memory must be <strong>pinned</strong>. Hardware matters too: most GPUs have separate copy engines for each direction, so H2D, D2H and a kernel can all run at once. <code>deviceQuery</code> reports this as <code>asyncEngineCount</code>.</p>
+
+  <h3>16.4 Pipelining vector add</h3>
+<pre><code>int seg = (n + NS - 1) / NS;                    // could also use many more segments than streams
+for (int k = 0; k &lt; NS; k++) {
+  int off = k * seg, len = min(seg, n - off);
+  size_t b = len * sizeof(float);
+  cudaMemcpyAsync(d_a + off, h_a + off, b, cudaMemcpyHostToDevice, s[k]);
+  cudaMemcpyAsync(d_b + off, h_b + off, b, cudaMemcpyHostToDevice, s[k]);
+  vecAdd&lt;&lt;&lt;(len + 255) / 256, 256, 0, s[k]&gt;&gt;&gt;(d_a + off, d_b + off, d_c + off, len);
+  cudaMemcpyAsync(h_c + off, d_c + off, b, cudaMemcpyDeviceToHost, s[k]);
+}
+cudaDeviceSynchronize();</code></pre>
+  <p>Note the pointer offsets (<code>d_a + off</code>): each stream works on its own slice, so there's no conflict. <strong>Issue order</strong> matters on some GPUs. Interleaving per segment (copy, kernel, copy for segment 0, then segment 1 …), as above, works well on modern hardware; older GPUs sometimes needed all H2D copies issued first. The nsys timeline shows which you got.</p>
+
+  <h3>16.5 Timing with CUDA events</h3>
+  <p>CPU timers measure when the <em>host</em> saw things happen. With asynchronous work, <strong>events</strong> are better: they're recorded in a stream and timestamped by the GPU when they're reached.</p>
+<pre><code>cudaEvent_t start, stop; cudaEventCreate(&amp;start); cudaEventCreate(&amp;stop);
+cudaEventRecord(start, s[0]);
+/* … work … */
+cudaEventRecord(stop, s[0]);
+cudaEventSynchronize(stop);
+float ms; cudaEventElapsedTime(&amp;ms, start, stop);</code></pre>
+  <p>Events also create dependencies between streams: <code>cudaStreamWaitEvent(s2, ev)</code> makes stream 2 wait until <code>ev</code> (recorded in stream 1) is reached, without blocking the CPU.</p>
+
+  <div class="worked">
+    <div class="lbl">Worked example: how much can overlap save?</div>
+    <p><strong>Problem.</strong> Vector add on N = 2²⁶ floats (256 MB per array) on a T4 with pinned memory at ~12 GB/s per direction. Estimate the serial time and the pipelined time with 4 segments.</p>
+    <ol class="steps">
+      <li>H2D: 2 × 268 MB / 12 GB/s ≈ 45 ms. D2H: 268 MB / 12 GB/s ≈ 22 ms. Kernel: 805 MB / 300 GB/s ≈ 2.7 ms.</li>
+      <li>Serial: 45 + 2.7 + 22 ≈ <strong>70 ms</strong>.</li>
+      <li>Pipelined: H2D and D2H use separate copy engines, so they can overlap. The busiest resource is the H2D engine (45 ms). Segment 0's copy-in can't overlap anything, and the last segment's copy-out happens at the end: about 45 + (2.7 + 22)/4 ≈ <strong>51 ms</strong>.</li>
+      <li>Speed-up ≈ 1.4×. The limit is the H2D link itself (45 ms), so no number of streams can beat it. Overlap hides the <em>shorter</em> operations behind the longest one.</li>
+      <li>For a kernel with real compute (say 40 ms), overlap would hide almost all of it: max(45, 40, 22) plus ramp-up, against 107 ms serial. That's the case where streams shine.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Name the two requirements for a copy to overlap with a kernel.</summary><div class="ans"><p>Both are in different non-default streams, and the host memory is pinned (<code>cudaMallocHost</code>).</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why does one <code>cudaMemcpy</code> (no stream argument) in the middle of a pipeline destroy the overlap?</summary><div class="ans"><p>It runs in the legacy default stream, which waits for all earlier work in every stream and blocks later work in every stream until it finishes. Everything is serialized around it, and it also blocks the host.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>What's the difference between <code>cudaStreamSynchronize(s)</code> and <code>cudaDeviceSynchronize()</code>?</summary><div class="ans"><p>The first waits only for stream s; the second waits for all streams on the device. Use the narrowest one you need so other streams keep working.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>H2D takes 30 ms, the kernel 30 ms, D2H 30 ms, all serial. What's the best-case pipelined time with many segments?</summary><div class="ans"><p>All three resources can work in parallel, so the steady state is limited by any one of them: about 30 ms plus ramp-up and drain (one segment's H2D at the start, one segment's D2H at the end). With S segments that's about 30 + 60/S ms, approaching 30 ms: a 3× speed-up.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>You use 4 streams and <code>cudaMemcpyAsync</code>, but nsys shows no overlap. List three causes to check.</summary><div class="ans"><p>(1) Host memory is pageable (malloc) rather than pinned. (2) Some call uses the default stream, e.g. a plain <code>cudaMemcpy</code> or a kernel launched without a stream. (3) The kernel occupies the whole GPU, or the segments are so small that launch overhead dominates. Also check for a <code>cudaDeviceSynchronize()</code> inside the loop.</p></div></details>
+
+  <div class="lab"><h4>Lab: pipeline vector add</h4>
+    <ol>
+      <li>Starting from your Assignment 1 vector add, switch to pinned memory and measure how much faster the plain serial copies get.</li>
+      <li>Implement the 4-stream pipeline from 16.4 and time it with events. Predict the result using the worked example.</li>
+      <li>Sweep the number of segments (1, 2, 4, 8, 16, 32) and plot time against segments.</li>
+      <li>Record a timeline with <code>nsys profile -o pipe ./vecadd_streams</code> and open it in the Nsight Systems GUI. Take a screenshot showing overlapping copy and kernel rows.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p><strong>Step 1:</strong> pageable copies on Colab are typically 5–8 GB/s; pinned, 11–13 GB/s.</p>
+      <p><strong>Step 2–3:</strong> time falls from 1 segment to about 4–8 segments, then flattens near the H2D-only time, and rises slightly beyond ~16–32 segments as per-operation overhead (~10 µs each) adds up. The best speed-up for vector add is modest (~1.3–1.5×), because the transfers themselves are the floor.</p>
+      <p><strong>Step 4:</strong> the GUI timeline shows "Memcpy HtoD" for one stream overlapping "Memcpy DtoH" and kernels in others. If not, re-check the three causes in the last exercise.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c16"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 17 ================= -->
+<section class="mod" id="m17" data-title="Scheduling, sync & Graphs">
+  <div class="eyebrow">Module 17 · Main topic 2 (Scheduling, Synchronization, CUDA Graph) · <span class="tag">standard sources</span> · <code>heat1d.cu</code> profile</div>
+  <h2>Scheduling, synchronization and CUDA Graphs</h2>
+  <p class="goal">What the hardware does with your blocks, which kinds of synchronization exist, and how to stop launch overhead from dominating.</p>
+  <ul class="goals"><li>After this module you can: describe how blocks and warps are scheduled, choose the right synchronization level (warp, block, grid, stream, device), recognize a launch-overhead-bound program from an nsys profile, and use CUDA Graphs to remove that overhead.</li></ul>
+
+  <h3>17.1 How work is scheduled</h3>
+  <ul>
+    <li><strong>Blocks → SMs.</strong> The block scheduler hands blocks to SMs as resources free up (Module 8's limits). When a block finishes, a waiting block takes its place. There's no guaranteed order, and a block never migrates.</li>
+    <li><strong>Waves.</strong> If a grid has more blocks than fit at once, it runs in waves. With 40 SMs × 4 blocks per SM = 160 resident blocks, a 170-block grid runs one full wave and then a second wave of 10 blocks with most of the GPU idle: the <strong>tail effect</strong>. Grids much larger than one wave make tails negligible.</li>
+    <li><strong>Warps → schedulers.</strong> Inside an SM, each of the 4 warp schedulers picks a ready warp every cycle (Module 2). Nsight Compute's Scheduler Statistics and Warp State sections show why warps aren't ready (waiting on memory, at a barrier, …).</li>
+  </ul>
+
+  <h3>17.2 The synchronization ladder</h3>
+  <div class="tbl"><table>
+    <tr><th>Level</th><th>Mechanism</th><th>Waits for</th><th>Typical use</th></tr>
+    <tr><td>Warp</td><td><code>__syncwarp()</code>, <code>__shfl_*_sync</code></td><td>Lanes of one warp</td><td>Warp reductions (Module 15)</td></tr>
+    <tr><td>Block</td><td><code>__syncthreads()</code></td><td>Threads of one block</td><td>Shared-memory tiles (Modules 13–14)</td></tr>
+    <tr><td>Grid</td><td>Kernel boundary; or cooperative groups <code>grid.sync()</code></td><td>All blocks</td><td>Time steps (Module 9). <code>grid.sync()</code> needs a cooperative launch with all blocks resident at once.</td></tr>
+    <tr><td>Stream</td><td><code>cudaStreamSynchronize</code>, events, <code>cudaStreamWaitEvent</code></td><td>One stream / one event</td><td>Pipelines (Module 16)</td></tr>
+    <tr><td>Device</td><td><code>cudaDeviceSynchronize()</code></td><td>Everything on the GPU</td><td>Timing, end of program</td></tr>
+    <tr><td>Data, not time</td><td>Atomics, <code>__threadfence()</code></td><td>Nothing; makes updates indivisible or visible</td><td>Counters, reductions (Module 13)</td></tr>
+  </table></div>
+  <p>Rule of thumb: use the <em>narrowest</em> synchronization that is correct. Every wider one stops more work.</p>
+
+  <h3>17.3 Launch overhead</h3>
+  <p>Every kernel launch costs a few microseconds of CPU time (<code>cudaLaunchKernel</code>), and back-to-back kernels leave small gaps on the GPU. That's negligible for a 10 ms kernel and dominant for a 2 µs one.</p>
+  <div class="worked">
+    <div class="lbl">Worked example: the Lecture 3 heat1d profile</div>
+    <p><strong>Data</strong> (from the Lecture 3 notebook, N = 2001, 500,000 time steps):</p>
+    <ul>
+      <li><code>cudaLaunchKernel</code>: 500,000 calls, 3.96 s in total, <strong>7.9 µs average</strong>, 92% of API time.</li>
+      <li><code>heatStep</code> kernel: <strong>1.87 µs average</strong>, 0.94 s of GPU time in total.</li>
+    </ul>
+    <ol class="steps">
+      <li>Each step, the CPU spends ~7.9 µs launching a kernel that runs for ~1.9 µs. The CPU can't issue launches as fast as the GPU finishes them.</li>
+      <li>So the GPU is busy only about 1.9 / 7.9 ≈ 24% of the time, and the program is <strong>launch-bound</strong>, not compute- or memory-bound.</li>
+      <li>Tuning the kernel (shared memory, block size) would change almost nothing. At best it saves part of 0.94 s out of ~4 s.</li>
+      <li>Fixes: (a) do several time steps per launch, which is possible for small N in one block using <code>__syncthreads()</code> between steps; (b) make each launch cheaper with <strong>CUDA Graphs</strong>; (c) for large N the kernel time grows and this problem disappears by itself.</li>
+    </ol>
+  </div>
+
+  <h3>17.4 CUDA Graphs</h3>
+  <p>A <strong>CUDA Graph</strong> records a sequence of GPU operations (kernels, copies, dependencies) once, then replays the whole sequence with one launch. The driver validates and prepares everything at creation time, so each replay costs about as much as a single launch, and the GPU runs the kernels back to back. The easiest way to build one is <strong>stream capture</strong>:</p>
+<pre><code>cudaStream_t s; cudaStreamCreate(&amp;s);
+cudaGraph_t graph; cudaGraphExec_t exec;
+
+cudaStreamBeginCapture(s, cudaStreamCaptureModeGlobal);
+for (int k = 0; k &lt; 100; k++) {                     // record 100 steps (an even number,
+  heatStep&lt;&lt;&lt;blocks, threads, 0, s&gt;&gt;&gt;(d_u, d_unew, N, r);   // so the swaps end where they began)
+  std::swap(d_u, d_unew);                           // host-side swap is baked into the captured args
+}
+cudaStreamEndCapture(s, &amp;graph);
+cudaGraphInstantiate(&amp;exec, graph, 0);              // CUDA 12+ signature
+
+for (int rep = 0; rep &lt; steps / 100; rep++)
+  cudaGraphLaunch(exec, s);                         // one launch = 100 kernels
+cudaStreamSynchronize(s);</code></pre>
+  <ul>
+    <li>Captured operations aren't executed during capture, only recorded. Kernel arguments are captured by value, so the pointer swaps are frozen into the graph, which is why an even number of steps per graph keeps <code>d_u</code> pointing at the latest result.</li>
+    <li>Graphs suit work that repeats with the same structure: time-stepping, every training step of a neural network, every token in LLM inference. llm.c and PyTorch both use them.</li>
+    <li>If parameters change between replays, update the graph with <code>cudaGraphExecKernelNodeSetParams</code> or re-capture.</li>
+  </ul>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Name the synchronization mechanism for each: lanes of a warp, threads of a block, all blocks of a grid, one stream.</summary><div class="ans"><p><code>__syncwarp</code> (or the <code>_sync</code> shuffle intrinsics); <code>__syncthreads</code>; a kernel boundary (or cooperative groups <code>grid.sync()</code>); <code>cudaStreamSynchronize</code> or events.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>How can you tell from nsys that a program is launch-bound?</summary><div class="ans"><p>Many launches with average <code>cudaLaunchKernel</code> time comparable to or larger than the average kernel duration, and a GPU timeline with gaps between short kernels. GPU kernel time is much less than wall-clock time.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why can't you just put a global barrier inside a normal kernel's time loop?</summary><div class="ans"><p>Not all blocks are guaranteed to be resident at once. A block waiting at a global barrier could be waiting for a block that can't start until it finishes: a deadlock. Cooperative launches guarantee residency (and limit the grid size) so <code>grid.sync()</code> is safe.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A grid has 165 blocks and 160 fit at once. Estimate the GPU's utilization if every block takes the same time.</summary><div class="ans"><p>Two waves: 160 blocks, then 5. Total time ≈ 2 block-times for 165 block-times of work, versus 160 × 2 = 320 slots available: about 52% utilization. Resizing blocks so the grid fits in one wave (or is many waves long) fixes this.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>With CUDA Graphs, launch cost per kernel falls from ~8 µs to ~1 µs. Estimate the new heat1d time.</summary><div class="ans"><p>Kernels take 1.87 µs, and now the CPU issues work faster than that, so the GPU becomes the limit: about 500,000 × (1.87 µs + ~1 µs of small gaps) ≈ 1.4 s, against ~4 s before. Roughly 2.5–3× faster without touching the kernel.</p></div></details>
+
+  <div class="lab"><h4>Lab: graph the heat equation</h4>
+    <ol>
+      <li>Run <code>heat1d.cu</code> with N = 2001 under <code>nsys profile --stats=true</code> and check the numbers in the worked example.</li>
+      <li>Add a CUDA Graph with 100 captured steps (as in 17.4) and handle the snapshot steps (the snapshot indices are multiples of steps/8; capture-and-launch until the next snapshot, then launch the remainder normally).</li>
+      <li>Verify that the error table is unchanged, then compare total runtime and nsys API stats.</li>
+      <li>Repeat with N = 2,000,001. Does the graph still help? Why or why not?</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p><strong>Step 3:</strong> the max-error column should match to all printed digits, since the arithmetic is identical. Expect total time to drop from ~4–5 s to ~1.5–2 s, with <code>cudaLaunchKernel</code> replaced by about 5,000 <code>cudaGraphLaunch</code> calls.</p>
+      <p><strong>Step 4:</strong> careful: dx shrinks, so with r fixed the step count grows as N² (dt ∝ dx²). Reduce tEnd or the number of steps to keep the run short. Each kernel then takes ~20–30 µs (8 MB of traffic), so launch overhead is already hidden behind kernel time and the graph gives little benefit. Graphs help when kernels are short.</p>
+      <p>Simpler alternative for step 2: set tEnd so steps is a multiple of 100, and take snapshots only at graph boundaries.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c17"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 18 ================= -->
+<section class="mod" id="m18" data-title="Unified Memory">
+  <div class="eyebrow">Module 18 · Lecture 3.2.1 (CUDA Unified Memory) · Lecture 6 · Project topic 6</div>
+  <h2>Unified Memory</h2>
+  <p class="goal">One pointer that works on both CPU and GPU, what it really does underneath, and how to make it fast.</p>
+  <ul class="goals"><li>After this module you can: allocate managed memory, explain on-demand page migration and why the first kernel is slow, use prefetching and memory advice, explain oversubscription, and design a fair Unified Memory experiment for the project.</li></ul>
+
+  <h3>18.1 One address space</h3>
+  <p><strong>Unified Memory</strong> gives you a single pointer valid on both the CPU and the GPU. Replace <code>malloc</code> + <code>cudaMalloc</code> + <code>cudaMemcpy</code> with one call:</p>
+<pre><code>float *x, *y;
+cudaMallocManaged(&amp;x, n * sizeof(float));
+cudaMallocManaged(&amp;y, n * sizeof(float));
+for (int i = 0; i &lt; n; i++) { x[i] = 1.0f; y[i] = 2.0f; }    // CPU writes
+add&lt;&lt;&lt;blocks, 256&gt;&gt;&gt;(n, x, y);                                 // GPU reads/writes the same pointers
+cudaDeviceSynchronize();                                      // REQUIRED before the CPU reads y
+printf("%f\n", y[0]);                                          // CPU reads
+cudaFree(x); cudaFree(y);</code></pre>
+  <p>The synchronize is still essential: the launch is asynchronous, so without it the CPU might read <code>y</code> before the kernel has written it.</p>
+
+  <h3>18.2 How it works (Pascal and newer, including T4 and H100)</h3>
+  <ul>
+    <li><code>cudaMallocManaged</code> reserves address space but may not allocate any physical memory yet. Pages are created on <strong>first touch</strong>.</li>
+    <li>When the GPU accesses a page that lives in CPU memory, it takes a <strong>page fault</strong>. The driver migrates the page (typically 4 KB–2 MB chunks) over PCIe, updates the page tables, and the warp continues. The same happens in reverse when the CPU touches GPU-resident pages.</li>
+    <li>Faults are handled in batches, but each batch costs tens of microseconds. A kernel touching gigabytes of non-resident data spends most of its time faulting, so <strong>the first kernel that touches managed data is often much slower</strong> than the same kernel with explicit copies.</li>
+    <li>Pre-Pascal GPUs worked differently: all managed data was migrated to the GPU at every launch, with no faults. That's why the slides distinguish the generations.</li>
+    <li><strong>Oversubscription:</strong> on Pascal and newer, managed allocations can exceed GPU memory. Pages are evicted to the host as needed. It's slow, but it lets programs run that wouldn't fit otherwise.</li>
+  </ul>
+
+  <h3>18.3 Making it fast: prefetch and advise</h3>
+<pre><code>int dev; cudaGetDevice(&amp;dev);
+cudaMemPrefetchAsync(x, bytes, dev, stream);             // move pages to the GPU before the kernel
+kernel&lt;&lt;&lt;g, b, 0, stream&gt;&gt;&gt;(x, …);
+cudaMemPrefetchAsync(y, bytes, cudaCpuDeviceId, stream); // bring results back before the CPU reads
+
+cudaMemAdvise(w, bytes, cudaMemAdviseSetReadMostly, dev);  // read-only data: keep copies on both sides
+cudaMemAdvise(x, bytes, cudaMemAdviseSetPreferredLocation, dev);</code></pre>
+  <p>Prefetching turns many small fault-driven migrations into one bulk transfer, often matching explicit <code>cudaMemcpy</code> performance. <code>SetReadMostly</code> suits model weights or lookup tables: each processor keeps its own read-only copy. In CUDA 13 the prefetch and advise functions take a <code>cudaMemLocation</code> struct instead of a plain device ID. Check the signature in your toolkit's headers if a call won't compile.</p>
+
+  <h3>18.4 When to use it</h3>
+  <ul>
+    <li><strong>Good for:</strong> complex data structures with pointers (linked structures, the particle structs of Module 15), where deep copies are painful; fast porting; data that doesn't fit in GPU memory; CPU and GPU taking turns on the same data.</li>
+    <li><strong>Costs:</strong> without prefetching, page faults can make it several times slower than explicit copies; behaviour is less predictable; it's harder to overlap with computation.</li>
+    <li>On systems with a fast CPU–GPU link and shared page tables (such as Grace Hopper), the costs are much lower. Results depend on the platform, which is worth stating in the project.</li>
+  </ul>
+
+  <div class="worked">
+    <div class="lbl">Worked example: designing a Unified Memory experiment (project topic 6)</div>
+    <p><strong>Goal:</strong> evaluate replacing <code>cudaMalloc</code>/<code>cudaMemcpy</code> with Unified Memory in an application, as the project topic list asks.</p>
+    <ol class="steps">
+      <li><strong>Variants:</strong> (a) explicit copies (baseline); (b) <code>cudaMallocManaged</code> with no hints; (c) managed + <code>cudaMemPrefetchAsync</code>; (d) managed + prefetch + <code>cudaMemAdvise</code> for read-mostly data.</li>
+      <li><strong>Metrics:</strong> end-to-end time; kernel time separately; with nsys <code>--cuda-um-cpu-page-faults=true --cuda-um-gpu-page-faults=true</code>, the number of page faults and bytes migrated.</li>
+      <li><strong>Predictions:</strong> (b) is slowest on the first iteration (faults), then close to (a) once data is resident; (c) is close to (a) from the start; (d) helps when the CPU also reads the data.</li>
+      <li><strong>Extension:</strong> a problem larger than GPU memory, which only (b)–(d) can run. Measure how time grows beyond the memory limit.</li>
+      <li><strong>Report:</strong> explain each difference by page-fault counts and migrated bytes, not just times. That is the A-level step.</li>
+    </ol>
+  </div>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>What replaces <code>cudaMalloc</code> + <code>cudaMemcpy</code> with Unified Memory, and what call is still needed before the CPU reads results?</summary><div class="ans"><p><code>cudaMallocManaged</code>; <code>cudaDeviceSynchronize()</code> (or a stream synchronize), because the kernel is asynchronous.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is the first kernel touching managed memory often slow?</summary><div class="ans"><p>The data starts in CPU memory (written by the CPU), so the GPU page-faults on every page it touches, and pages migrate one batch at a time while warps stall. Later kernels find the pages already resident.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>What does oversubscription mean, and why is it only possible with Unified Memory?</summary><div class="ans"><p>Allocating more managed memory than the GPU has. Pages migrate in and are evicted on demand. With <code>cudaMalloc</code>, all memory must physically exist on the GPU at allocation time.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Your Unified Memory version is 3× slower than explicit copies. What do you measure, and what do you try?</summary><div class="ans"><p>Profile page faults and migrated bytes with nsys's UM options. If faults are high, add <code>cudaMemPrefetchAsync</code> to the GPU before the kernel and back to the CPU before host reads; mark read-only arrays <code>SetReadMostly</code>. Check you aren't touching the data on the CPU between kernels, which causes ping-pong migration.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>Which is easier to port with Unified Memory: Assignment 1's vector add or the iPIC3D particle structs? Why?</summary><div class="ans"><p>The particle structs. Their pointers become valid on both sides, so no deep copy is needed. Vector add is already trivial with explicit copies, so Unified Memory saves little code there.</p></div></details>
+
+  <div class="lab"><h4>Lab: four versions of one kernel</h4>
+    <ol>
+      <li>Write vector add with N = 2²⁶ in four versions: explicit copies; managed; managed + prefetch; managed with the kernel run twice (time each run).</li>
+      <li>Predict the order of times before running.</li>
+      <li>Profile with <code>nsys profile --stats=true --cuda-um-gpu-page-faults=true --cuda-um-cpu-page-faults=true</code> and find the page-fault counts.</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+      <p><strong>Expected on a T4:</strong> managed without prefetch: the first kernel takes tens of ms (vs ~2.7 ms for the resident kernel) because of thousands of GPU page faults, and the second run drops to about the resident time. Managed + prefetch: the prefetch takes about as long as an explicit copy, and the kernel runs at full speed. Explicit copies with pageable memory are similar to or slightly slower than prefetch.</p>
+      <p>nsys shows GPU page faults only for the non-prefetched run, and CPU page faults when the host reads results that weren't prefetched back.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c18"> I can explain this module without notes</label>
+</section>
+
+<!-- ================= MODULE 19 ================= -->
+<section class="mod" id="m19" data-title="Sparsity">
+  <div class="eyebrow">Module 19 · Lecture 6 (SpMV, SpMM, embedding lookup, structured sparsity) · <span class="tag">standard sources</span></div>
+  <h2>Sparse data on GPUs</h2>
+  <p class="goal">Most values are zero, so store and compute only the rest, and deal with the irregularity that brings.</p>
+  <ul class="goals"><li>After this module you can: store a matrix in CSR, write scalar and vector SpMV kernels and explain their coalescing and load balance, describe SpMM and embedding lookups, and explain 2:4 structured sparsity on Tensor Cores.</li></ul>
+
+  <h3>19.1 Why sparsity is different</h3>
+  <p>A sparse matrix (finite-element meshes, graphs, recommendation data, pruned neural networks) is mostly zeros. Storing it densely wastes memory and computing on it wastes FLOPs. Sparse formats store only the non-zeros (nnz), but the access pattern becomes <strong>irregular</strong>: the book's challenge of "input sensitivity" (Module 10). Rows have different lengths, so threads get different amounts of work.</p>
+
+  <h3>19.2 CSR: compressed sparse row</h3>
+  <p>Three arrays: <code>val[nnz]</code> (non-zero values, row by row), <code>col[nnz]</code> (their column indices), and <code>rowPtr[rows+1]</code> (where each row starts in val and col).</p>
+<pre><code>// matrix        val    = [5, 1, 2, 3, 4]
+// [5 0 0 1]     col    = [0, 3, 1, 2, 3]
+// [0 2 0 0]     rowPtr = [0, 2, 3, 3, 5]     (row 2 is empty: rowPtr[2] == rowPtr[3])
+// [0 0 0 0]
+// [0 0 3 4]</code></pre>
+  <p>Other formats trade differently: <strong>COO</strong> (row, col, value triples: simple, good for building), <strong>ELL</strong> (pad every row to the same length: regular and coalesced, but wasteful if lengths vary), and hybrids. cuSPARSE supports all of them.</p>
+
+  <h3>19.3 SpMV: sparse matrix × dense vector</h3>
+  <p><strong>Scalar kernel, one thread per row:</strong></p>
+<pre><code>__global__ void spmv_scalar(int rows, const int *rowPtr, const int *col,
+                            const float *val, const float *x, float *y) {
+  int r = blockIdx.x * blockDim.x + threadIdx.x;
+  if (r &gt;= rows) return;
+  float s = 0.0f;
+  for (int k = rowPtr[r]; k &lt; rowPtr[r + 1]; k++) s += val[k] * x[col[k]];
+  y[r] = s;
+}</code></pre>
+  <ul>
+    <li><strong>Uncoalesced:</strong> neighbouring threads read <code>val</code> from different rows, far apart (the same problem as Module 15's thread-per-row matvec).</li>
+    <li><strong>Load imbalance and divergence:</strong> a thread with a 1,000-element row keeps its whole warp busy while threads with 3-element rows idle.</li>
+    <li><strong>Gather:</strong> <code>x[col[k]]</code> is an indirect, irregular read. Caches help if columns are clustered.</li>
+  </ul>
+  <p><strong>Vector kernel, one warp per row:</strong> lanes stride through the row's non-zeros (<code>k = rowPtr[r] + lane; k &lt; rowPtr[r+1]; k += 32</code>), then do a shuffle reduction exactly as in Module 15. Reads of val and col are now coalesced. It's best when rows have ≳ 32 non-zeros; for very short rows most lanes idle, so libraries pick strategies based on the row-length distribution.</p>
+  <p>SpMV has very low arithmetic intensity: 2 FLOPs per non-zero for ~12 bytes read (value, index, x). It's always memory-bound, and its performance is judged in GB/s, not GFLOP/s.</p>
+
+  <h3>19.4 SpMM and embedding lookups</h3>
+  <ul>
+    <li><strong>SpMM</strong> (sparse matrix × dense matrix): every non-zero is used for a whole row of the dense matrix, so each loaded index is reused many times. Intensity is higher than SpMV and coalescing is easier along the dense dimension. It's used in graph neural networks and pruned models.</li>
+    <li><strong>Embedding lookup</strong> (recommender systems, LLM token embeddings): gather rows of a large table by index, <code>out[i] = table[ids[i]]</code>, often followed by a sum (EmbeddingBag). This is mathematically an SpMM with a one-hot sparse matrix, purely memory-bound. Assign a warp or block per looked-up row so that each row's elements are copied with coalesced accesses.</li>
+  </ul>
+
+  <h3>19.5 Structured sparsity on Tensor Cores</h3>
+  <p>Unstructured sparsity is hard for hardware to exploit. Ampere and newer Tensor Cores support <strong>2:4 structured sparsity</strong>: in every group of 4 consecutive weights, at most 2 are non-zero. The hardware stores only the 2 values plus 2-bit indices, and skips the zeros, up to <strong>2× the Tensor Core throughput</strong> with half the weight storage.</p>
+  <ul>
+    <li>Networks are pruned to the 2:4 pattern and fine-tuned to recover accuracy, typically with little loss.</li>
+    <li>Used through cuSPARSELt or framework support. It needs Ampere or newer: the H100 has it, the T4 (Turing) doesn't.</li>
+    <li>It's the "structured sparsity" listed in project topic 2. Pair it with Module 20 (Tensor Cores).</li>
+  </ul>
+
+  <h3>Exercises</h3>
+  <details><summary><span class="lv">Recall</span>Write the CSR arrays for <code>[[0,7],[8,9]]</code>.</summary><div class="ans"><p>val = [7, 8, 9], col = [1, 0, 1], rowPtr = [0, 1, 3].</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is the scalar CSR kernel both uncoalesced and imbalanced?</summary><div class="ans"><p>Uncoalesced: neighbouring threads read val/col at the start of different rows, far apart. Imbalanced: each thread loops over its own row's length, so the warp waits for its longest row.</p></div></details>
+  <details><summary><span class="lv l2">Explain</span>Why is an embedding lookup memory-bound, and how do you make it coalesced?</summary><div class="ans"><p>It just copies data (zero or one FLOP per element). Assign a group of consecutive threads (a warp or block) to each looked-up row, so they copy consecutive elements of that row together.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A matrix has 1M rows: 99% have 4 non-zeros, 1% have 2,000. Scalar or vector kernel?</summary><div class="ans"><p>Neither alone is ideal. Scalar: the long rows make some warps take ~500× longer, so tail imbalance dominates. Vector: the 4-element rows waste 28 of 32 lanes. A hybrid (short rows with thread- or few-lanes-per-row, long rows with a block or warp each), or a library that picks per row, is best. Mention this kind of trade-off with numbers in a project report.</p></div></details>
+  <details><summary><span class="lv l3">Apply</span>A layer's weights are pruned to 2:4 sparsity. What speed-up should you expect at most, and on which of your GPUs?</summary><div class="ans"><p>Up to 2× in the matrix-multiply itself, on the H100 (Ampere or newer) only, not on the T4. End-to-end gains are smaller (Amdahl: other layers and memory traffic don't shrink).</p></div></details>
+
+  <div class="lab"><h4>Lab: SpMV two ways</h4>
+    <ol>
+      <li>Build a random CSR matrix (100,000 rows, about 64 non-zeros per row) and a CPU reference SpMV.</li>
+      <li>Implement <code>spmv_scalar</code> and a warp-per-row <code>spmv_vector</code>; verify both.</li>
+      <li>Time both and compute effective bandwidth: (nnz × 8 + rows × 8 + x bytes) / time.</li>
+      <li>Repeat with 4 non-zeros per row. Which kernel wins now?</li>
+    </ol>
+    <details><summary>Solution and expected output</summary><div class="ans">
+<pre><code>__global__ void spmv_vector(int rows, const int *rowPtr, const int *col,
+                            const float *val, const float *x, float *y) {
+  int r = (blockIdx.x * blockDim.x + threadIdx.x) / 32, lane = threadIdx.x % 32;
+  if (r &gt;= rows) return;
+  float s = 0.0f;
+  for (int k = rowPtr[r] + lane; k &lt; rowPtr[r + 1]; k += 32) s += val[k] * x[col[k]];
+  for (int off = 16; off &gt; 0; off /= 2) s += __shfl_down_sync(0xffffffff, s, off);
+  if (lane == 0) y[r] = s;
+}</code></pre>
+      <p><strong>Expected:</strong> with 64 non-zeros per row the vector kernel is clearly faster (often 2–4×), reaching a good fraction of DRAM bandwidth. With 4 per row the scalar kernel wins, because the vector kernel idles 28 of 32 lanes. The best kernel depends on the data.</p>
+    </div></details>
+  </div>
+  <label class="check"><input type="checkbox" id="c19"> I can explain this module without notes</label>
+</section>
+
 </main>
 </div>
 
@@ -1644,6 +2004,16 @@ dim3 block(T, T), grid((P + T - 1) / T, (M + T - 1) / T);</code></pre>
     if(strided){var t=document.createElementNS(ns,'text');t.setAttribute('x',0);t.setAttribute('y',y+44);t.setAttribute('class','mut');t.textContent='… 32 sectors (1,024 B fetched) for 128 useful bytes';g.appendChild(t);}
     else{var t2=document.createElementNS(ns,'text');t2.setAttribute('x',0);t2.setAttribute('y',y+44);t2.setAttribute('class','mut');t2.textContent='4 sectors (128 B fetched) for 128 useful bytes';g.appendChild(t2);}}
   sectors('coal1',22,false); sectors('coal2',108,true);
+  // pipeline figure (Module 16)
+  (function(){var g=document.getElementById('pipe');if(!g)return;var ns='http://www.w3.org/2000/svg';
+    function box(x,y,w,fill,stroke,label,dark){var r=document.createElementNS(ns,'rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',22);r.setAttribute('fill',fill);if(stroke)r.setAttribute('stroke',stroke);g.appendChild(r);
+      var t=document.createElementNS(ns,'text');t.setAttribute('x',x+4);t.setAttribute('y',y+15);t.textContent=label;if(dark)t.setAttribute('fill','var(--bg)');g.appendChild(t);}
+    for(var k=0;k<3;k++){var y=86+k*30,x0=k*60;
+      box(x0,y,60,'var(--accent-soft)','var(--accent)','H2D '+k);
+      box(x0+60,y,20,'var(--accent)',null,'',true);
+      box(x0+80,y,30,'var(--warn-soft)','var(--warn)','D2H');
+      var l=document.createElementNS(ns,'text');l.setAttribute('x',x0+118);l.setAttribute('y',y+15);l.setAttribute('class','mut');l.textContent='stream '+(k+1);g.appendChild(l);}
+  })();
   // table of contents + progress
   [].slice.call(document.querySelectorAll('.chk input')).forEach(function(b){
     var k='dd2360-plan-'+b.id; try{b.checked=localStorage.getItem(k)==='1'}catch(e){}
