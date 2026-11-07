@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Interview Prep Hub</title>
+<style>
+  :root{--bg:#fdfdfb;--fg:#222;--fg2:#666;--accent:#2457c5;--card:#fff;--line:#e6e6e2;--accent-soft:#e8effa;--warn:#9c4e08;--warn-soft:#fdf3e6;--good:#0f7b3f;--good-soft:#e6f5ed;--mono:ui-monospace,'SF Mono',monospace}
+  @media(prefers-color-scheme:dark){:root{--bg:#151515;--fg:#ddd;--fg2:#999;--accent:#7fa8ff;--card:#1e1e1e;--line:#333;--accent-soft:#1e2a3d;--warn:#f0a44b;--warn-soft:#2a2015;--good:#4ade80;--good-soft:#152218}}
+  *{box-sizing:border-box;margin:0}
+  body{font-family:system-ui,sans-serif;max-width:46rem;margin:3rem auto;padding:0 1rem;line-height:1.6;color:var(--fg);background:var(--bg)}
+  a{color:var(--accent)}
+
+  /* Lock screen */
+  #lock{text-align:center;padding:80px 0}
+  #lock svg{width:48px;height:48px;color:var(--fg2);margin-bottom:16px}
+  #lock h1{font-size:1.5rem;margin-bottom:4px}
+  #lock p{color:var(--fg2);font-size:.9rem;margin-bottom:20px}
+  #lock form{display:flex;gap:8px;max-width:320px;margin:0 auto}
+  #lock input[type=password]{flex:1;padding:8px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font-family:var(--mono);font-size:.95rem;outline:none}
+  #lock input:focus{border-color:var(--accent)}
+  #lock button{padding:8px 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:.85rem;cursor:pointer}
+  #lock button:hover{opacity:.85}
+  #lock-err{color:var(--warn);font-size:.8rem;margin-top:8px;min-height:18px}
+
+  /* Hub */
+  #hub{display:none}
+  .hub-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+  .hub-top h1{font-size:1.5rem;flex:1;min-width:180px}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:var(--good-soft);color:var(--good);border-radius:16px;font-size:.75rem;font-weight:600;letter-spacing:.02em}
+  .lock-btn{padding:5px 10px;background:var(--card);color:var(--fg2);border:1px solid var(--line);border-radius:6px;font-size:.75rem;cursor:pointer;font-weight:500}
+  .lock-btn:hover{background:var(--line)}
+
+  /* Tabs */
+  .tabs{display:flex;gap:2px;border-bottom:2px solid var(--line);margin-bottom:20px;overflow-x:auto}
+  .tab{padding:8px 14px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-size:.82rem;font-weight:500;color:var(--fg2);cursor:pointer;white-space:nowrap}
+  .tab:hover{color:var(--fg)}
+  .tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .panel{display:none}.panel.on{display:block}
+
+  /* Meta */
+  .meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:16px;font-size:.82rem;color:var(--fg2)}
+  .tag{display:inline-block;padding:2px 7px;background:var(--accent-soft);color:var(--accent);border-radius:4px;font-weight:500;font-size:.75rem}
+
+  /* Section cards */
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden}
+  .sec summary{padding:10px 14px;font-weight:600;font-size:.88rem;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+  .sec summary::-webkit-details-marker{display:none}
+  .sec summary::before{content:'▸';color:var(--fg2);font-size:.7rem;transition:transform .15s;flex-shrink:0}
+  .sec[open] summary::before{transform:rotate(90deg)}
+  .sec .in{padding:0 14px 12px;font-size:.88rem;line-height:1.6}
+  .sec .in p{margin-bottom:6px}
+  .sec .in ul{padding-left:16px;margin-bottom:6px}
+  .sec .in li{margin-bottom:3px}
+
+  /* Q&A */
+  .qa{background:var(--warn-soft);border-left:3px solid var(--warn);padding:8px 12px;border-radius:0 6px 6px 0;margin-bottom:8px}
+  .qa .q{font-weight:600;color:var(--warn);font-size:.8rem;margin-bottom:3px}
+  .qa .a{font-size:.82rem;line-height:1.5}
+
+  /* Tables */
+  .ptable{width:100%;border-collapse:collapse;font-size:.8rem;margin:8px 0}
+  .ptable th{background:var(--accent);color:#fff;padding:6px 8px;text-align:left;font-weight:600;font-size:.75rem}
+  .ptable td{padding:6px 8px;border-bottom:1px solid var(--line);background:var(--card);vertical-align:top}
+  .vtable{width:100%;border-collapse:collapse;font-size:.8rem;margin:6px 0}
+  .vtable td{padding:4px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  .vtable td:first-child{font-weight:600;font-family:var(--mono);font-size:.75rem;white-space:nowrap;background:var(--accent-soft);width:100px}
+  .ttable{width:100%;border-collapse:collapse;font-size:.8rem;margin:6px 0}
+  .ttable th{background:var(--accent);color:#fff;padding:5px 8px;text-align:left;font-weight:600;font-size:.75rem}
+  .ttable td{padding:5px 8px;border-bottom:1px solid var(--line);background:var(--card)}
+
+  /* Logistics box */
+  .logistics{background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;padding:12px 14px;margin-top:6px}
+  .logistics h4{color:var(--accent);font-size:.78rem;font-weight:600;margin-bottom:4px;letter-spacing:.03em;text-transform:uppercase}
+  .logistics ul{padding-left:16px;font-size:.82rem}
+  .logistics li{margin-bottom:2px}
+
+  .eq{font-family:var(--mono);font-size:.82rem;padding:3px 10px;margin:4px 0}
+  .hint{color:var(--fg2);font-size:.8rem;margin-bottom:6px}
+
+  @media(max-width:500px){
+    .hub-top{flex-direction:column;align-items:flex-start;gap:6px}
+    .tab{padding:6px 10px;font-size:.75rem}
+    .ptable,.vtable,.ttable{display:block;overflow-x:auto}
+  }
+</style>
+</head>
+<body>
+<p><a href="../../">← All workbooks</a></p>
+
+<!-- ═══ LOCK ═══ -->
+<div id="lock">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+  <h1>Interview Prep Hub</h1>
+  <p>Enter your password to access interview prep materials.</p>
+  <form id="lock-form">
+    <input type="password" id="pw" placeholder="Password" autocomplete="off" autofocus>
+    <button type="submit">Unlock</button>
+  </form>
+  <div id="lock-err"></div>
+</div>
+
+<!-- ═══ HUB ═══ -->
+<div id="hub">
+  <div class="hub-top">
+    <h1>Interview Prep Hub</h1>
+    <span class="badge">&#x2713; UNLOCKED</span>
+    <button class="lock-btn" onclick="doLock()">Lock</button>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-t="atf">Scania ATF Toolbox</button>
+    <button class="tab" data-t="emission">Scania Emission ML/SiL</button>
+  </div>
+
+  <!-- ═══ SCANIA ATF ═══ -->
+  <div class="panel on" id="p-atf">
+    <div class="meta">
+      <span class="tag">30 min</span>
+      <span class="tag">Online</span>
+      <span>Monday 9 November 2026 · 14:00</span>
+    </div>
+    <div class="meta">
+      <strong>Interviewer:</strong>&nbsp;Mohammad Afzal · Development Engineer · TGRCTA1 · TRATON AB
+    </div>
+
+    <details class="sec" open><summary>1. What This Project Is</summary><div class="in">
+      <p>Scania's Complete Vehicle Acoustic team (TGRCTA1) measures how sound travels from noise sources (engine, exhaust, tyres, wind) through the truck to the driver's ear. The <strong>Air-borne Transfer Function (ATF)</strong> is the frequency-domain relationship between a source's volume velocity and sound pressure at a receiver.</p>
+      <p>You're building a toolbox that lets engineers compute, visualise, and compare ATFs from raw measurement data — replacing ad-hoc MATLAB scripts with a structured, documented, GUI-equipped tool.</p>
+    </div></details>
+
+    <details class="sec"><summary>2. Core Concepts</summary><div class="in">
+      <p><strong>Transfer Function (FRF)</strong><br>H(f) = Y(f)/X(f). In acoustics: X = volume velocity, Y = sound pressure. Captures attenuation, resonances, phase.</p>
+      <div class="eq">H1(f) = S<sub>xy</sub>/S<sub>xx</sub> — minimises output noise</div>
+      <div class="eq">H2(f) = S<sub>yy</sub>/S<sub>yx</sub> — minimises input noise</div>
+      <p>In a perfect measurement H1 = H2.</p>
+      <p><strong>Coherence γ²</strong> = |S<sub>xy</sub>|²/(S<sub>xx</sub>·S<sub>yy</sub>). Range 0–1.</p>
+      <ul>
+        <li><strong>γ² ≈ 1</strong> — trustworthy</li>
+        <li><strong>γ² &lt; 0.7</strong> — suspect</li>
+        <li><strong>γ² ≈ 0</strong> — TF meaningless at that frequency</li>
+      </ul>
+      <p>Coherence = H1/H2. Always plot it alongside the TF.</p>
+      <p><strong>Airborne vs Structure-borne</strong></p>
+      <ul>
+        <li><strong>Airborne</strong>: sound radiates through air from vibrating surface to receiver. ATF describes this.</li>
+        <li><strong>Structure-borne</strong>: vibration enters cab through mounts; structure radiates sound inside.</li>
+      </ul>
+      <p><strong>TPA</strong> (Transfer Path Analysis) separates them.</p>
+      <p><strong>Volume Velocity Q</strong> = A·v (m³/s). Natural input for airborne ATF.</p>
+      <p><strong>Reciprocal Measurement</strong>: swap source ↔ receiver → same ATF. Validated on trucks to ±1 dB.</p>
+      <p><strong>Spectral Estimation</strong>: FFT length (Δf = fs/N), Hanning window (50% overlap), averaging for smoother estimates.</p>
+    </div></details>
+
+    <details class="sec"><summary>3. Scania's Acoustic Team</summary><div class="in">
+      <p>TGRCTA1 = Complete Vehicle Acoustic under TRATON. Moving from measurement toward simulation (MSC Nastran + Actran). 7.1 surround listening studio.</p>
+      <p><strong>Truck noise sources:</strong></p>
+      <ul>
+        <li>Powertrain — dominant at low speed</li>
+        <li>Wind — dominant at highway speed</li>
+        <li>Rolling (tyre/road) — mid-speed</li>
+      </ul>
+      <p>Mohammad co-authored SAE papers on AVAS simulation for electric trucks.</p>
+    </div></details>
+
+    <details class="sec"><summary>4. Toolbox Requirements</summary><div class="in">
+      <ul>
+        <li><strong>Data import</strong>: .mat, .wav, .uff, DAQ formats (B&amp;K Pulse, HEAD acoustics)</li>
+        <li><strong>Spectral computation</strong>: FFT, cross/auto-spectrum, H1/H2, coherence</li>
+        <li><strong>ATF formulations</strong>: p/p, p/Q, power-based</li>
+        <li><strong>Visualisation</strong>: magnitude (dB) + phase, coherence overlay, ⅓-octave, comparison</li>
+        <li><strong>GUI</strong>: MATLAB App Designer or Python (Qt/Dash)</li>
+        <li><strong>Export</strong>: .mat, .csv, report figures</li>
+        <li><strong>Documentation</strong>: maintainable after you leave</li>
+      </ul>
+    </div></details>
+
+    <details class="sec"><summary>5. Your Pitch (First 2 Min)</summary><div class="in">
+      <table class="ptable">
+        <tr><th>They need</th><th>You have</th></tr>
+        <tr><td>Working toolbox with GUI</td><td>Bilingual web app, 11-table data model, live on KTH cloud</td></tr>
+        <tr><td>Frequency-domain signal processing</td><td>NAPC 2025: FFT + wavelet on flame time series</td></tr>
+        <tr><td>Transfer functions as physics</td><td>GPR to infer fields from spectroscopic measurements</td></tr>
+        <tr><td>MATLAB + Python</td><td>Comfortable in both; Python primary</td></tr>
+        <tr><td>Vehicle acoustics domain</td><td>Honest gap — need team's guidance</td></tr>
+      </table>
+    </div></details>
+
+    <details class="sec"><summary>6. Likely Questions</summary><div class="in">
+      <div class="qa"><div class="q">Q: Tell me about yourself.</div><div class="a">MSc Data-Driven Health at KTH, GPA 4.80/5.00. I build software that processes and presents data — bilingual web app pulling from 26 sources. Published at NAPC 2025 using FFT and wavelet analysis on combustion data. Thesis work uses GPR to infer fields from spectroscopy. This project = toolbox engineering + frequency-domain physics.</div></div>
+      <div class="qa"><div class="q">Q: What do you know about acoustic transfer functions?</div><div class="a">ATF relates source volume velocity to sound pressure at receiver, frequency domain. Captures attenuation, resonances, phase. In NVH: quantifies airborne source contribution vs structure-borne paths. Uses H1/H2 estimators; coherence shows which bands to trust.</div></div>
+      <div class="qa"><div class="q">Q: Have you worked with MATLAB?</div><div class="a">Yes — both MATLAB and Python. Python primary, MATLAB for signal processing prototyping. Would prototype where team has scripts, build final tool in preferred language — or both with shared data format.</div></div>
+      <div class="qa"><div class="q">Q: How would you build the GUI?</div><div class="a">Start by talking to users — current workflow, pain points. Simplest version first: file selector, parameter panel, plot area, export. MATLAB → App Designer; Python → PyQt or Dash. Iterate with team.</div></div>
+      <div class="qa"><div class="q">Q: Difference between H1 and H2?</div><div class="a">H1 = S<sub>xy</sub>/S<sub>xx</sub> (minimises output noise). H2 = S<sub>yy</sub>/S<sub>yx</sub> (minimises input noise). Identical when noise-free. H1/H2 = coherence — when it drops, estimators diverge.</div></div>
+      <div class="qa"><div class="q">Q: Any NVH experience?</div><div class="a">Not directly. But I work with frequency-domain data, understand TFs as excitation→response, assess quality via coherence. The domain-specific parts — which formulations for which decisions — I'd learn from the team.</div></div>
+    </div></details>
+
+    <details class="sec"><summary>7. Questions to Ask Mohammad</summary><div class="in">
+      <p class="hint">Pick 2–3. Don't ask all.</p>
+      <ul>
+        <li><strong>What measurement system?</strong> B&amp;K Pulse? HEAD acoustics? Siemens?</li>
+        <li><strong>Current workflow?</strong> Existing MATLAB scripts or starting fresh?</li>
+        <li><strong>Which ATF formulations matter most?</strong></li>
+        <li><strong>Who uses the toolbox?</strong> Test engineers, simulation, both?</li>
+        <li><strong>MATLAB or Python preference?</strong></li>
+        <li><strong>Where does ATF data go?</strong> Simulation, reports, listening studio?</li>
+      </ul>
+    </div></details>
+
+    <details class="sec"><summary>8. Vocabulary</summary><div class="in">
+      <div style="overflow-x:auto">
+      <table class="vtable">
+        <tr><td>ATF</td><td>Air-borne Transfer Function</td></tr>
+        <tr><td>TPA</td><td>Transfer Path Analysis — separates airborne + structure-borne</td></tr>
+        <tr><td>NVH</td><td>Noise, Vibration, Harshness</td></tr>
+        <tr><td>FRF</td><td>Frequency Response Function</td></tr>
+        <tr><td>Q</td><td>Volume velocity (m³/s)</td></tr>
+        <tr><td>γ²</td><td>Coherence (0–1)</td></tr>
+        <tr><td>H1/H2</td><td>TF estimators</td></tr>
+        <tr><td>Hanning</td><td>Standard acoustic FFT window, 50% overlap</td></tr>
+        <tr><td>⅓-octave</td><td>Standard acoustic reporting bands</td></tr>
+        <tr><td>dB SPL</td><td>20·log₁₀(p/p<sub>ref</sub>), p<sub>ref</sub>=20 μPa</td></tr>
+        <tr><td>Reciprocity</td><td>Swap source↔receiver → same ATF</td></tr>
+        <tr><td>Pass-by</td><td>Sound at 7.5 m, regulated (EU R51)</td></tr>
+        <tr><td>AVAS</td><td>Acoustic Vehicle Alerting System</td></tr>
+        <tr><td>Actran</td><td>Acoustic simulation (MSC/Hexagon)</td></tr>
+        <tr><td>DAQ</td><td>Data Acquisition hardware</td></tr>
+      </table>
+      </div>
+    </div></details>
+
+    <details class="sec"><summary>9. Logistics</summary><div class="in">
+      <div class="logistics">
+        <h4>Checklist</h4>
+        <ul>
+          <li>30-min online interview — ready 5 min early</li>
+          <li>Have cover letter open (FFT/wavelet, GPR, bilingual app)</li>
+          <li>He already likes your CV — technical fit + personality</li>
+          <li>Dept: TGRCTA1, Complete Vehicle Acoustic, TRATON AB</li>
+          <li>Location: Södertälje (Scania HQ)</li>
+          <li>Likely paid (Mohammad confirmed)</li>
+        </ul>
+      </div>
+    </div></details>
+  </div>
+
+  <!-- ═══ SCANIA EMISSION ═══ -->
+  <div class="panel" id="p-emission">
+    <div class="meta">
+      <span class="tag">60 min</span>
+      <span class="tag">Teams</span>
+      <span>Week of 10–14 November 2026</span>
+    </div>
+    <div class="meta">
+      <strong>Interviewer:</strong>&nbsp;Kim Petersson · Head of Catalyst &amp; Filter Performance · TGRPAEC · Scania CV AB
+    </div>
+
+    <details class="sec" open><summary>1. What This Project Is</summary><div class="in">
+      <p>Scania's aftertreatment team (TGRPAEC) controls how diesel exhaust is cleaned. Centrepiece: <strong>SCR</strong> — urea (AdBlue) injected → decomposes to NH₃ → reacts with NOx on catalyst → N₂ + H₂O.</p>
+      <p>Your thesis: replace or augment the dosing controller with an <strong>ML model</strong>, validated in <strong>Software-in-the-Loop (SiL)</strong>. Workflow: data prep → train → SiL integration → benchmark vs reference controller.</p>
+    </div></details>
+
+    <details class="sec"><summary>2. How the SCR System Works</summary><div class="in">
+      <p><strong>Aftertreatment Chain:</strong></p>
+      <ul>
+        <li><strong>DOC</strong> — oxidises CO + HC, raises temp</li>
+        <li><strong>DPF</strong> — traps soot, periodically regenerated</li>
+        <li><strong>SCR</strong> — the NOx reducer</li>
+        <li><strong>ASC</strong> — catches excess NH₃</li>
+      </ul>
+      <p><strong>Chemistry:</strong> Urea → NH₃ + CO₂. NH₃ adsorbs on catalyst. Key reactions:</p>
+      <ul>
+        <li><strong>Standard SCR</strong>: 4NH₃ + 4NO + O₂ → 4N₂ + 6H₂O</li>
+        <li><strong>Fast SCR</strong>: needs 1:1 NO:NO₂ — fastest</li>
+        <li><strong>Slow SCR</strong>: excess NO₂ — slowest</li>
+      </ul>
+      <p><strong>The Core Tradeoff:</strong></p>
+      <table class="ttable">
+        <tr><th>Inject more urea</th><th>Inject less urea</th></tr>
+        <tr><td>↑ NOx conversion (good)</td><td>↓ NOx conversion (fails regulation)</td></tr>
+        <tr><td>↑ NH₃ slip risk (bad)</td><td>↓ NH₃ slip (good)</td></tr>
+        <tr><td>↑ AdBlue cost</td><td>↓ AdBlue cost</td></tr>
+      </table>
+      <p><strong>Current Control:</strong></p>
+      <ul>
+        <li><strong>Feedforward map</strong>: lookup by speed/load/temp → base dosing</li>
+        <li><strong>Feedback</strong>: post-SCR NOx sensor (but cross-sensitive to NH₃)</li>
+        <li><strong>NH₃ storage estimator</strong>: tracks stored ammonia on catalyst</li>
+        <li>Targets: &gt;95% NOx conversion, &lt;10 ppm avg NH₃ slip, &lt;30 ppm peak</li>
+      </ul>
+    </div></details>
+
+    <details class="sec"><summary>3. Software-in-the-Loop (SiL)</summary><div class="in">
+      <p>SiL = actual compiled ECU code on PC + simulated plant model. Plant provides sensor signals, ECU outputs actuator commands, plant responds.</p>
+      <p><strong>V-model ladder:</strong></p>
+      <ul>
+        <li><strong>MiL</strong> — Simulink controller + plant. Fastest.</li>
+        <li><strong>SiL</strong> — compiled production code + model. Catches code bugs.</li>
+        <li><strong>HiL</strong> — real ECU + real-time sim. Catches timing.</li>
+        <li><strong>Vehicle</strong> — real truck. Most expensive.</li>
+      </ul>
+      <p><strong>Why SiL:</strong> thousands of drive cycles overnight, fair benchmark, catches integration issues MiL misses.</p>
+    </div></details>
+
+    <details class="sec"><summary>4. Where ML Fits</summary><div class="in">
+      <ul>
+        <li><strong>ML as dosing controller</strong>: replace feedforward+feedback with learned policy</li>
+        <li><strong>ML as virtual sensor</strong>: predict NH₃ storage, catalyst state, outlet NOx</li>
+        <li><strong>ML for catalyst model</strong>: replace physics with trained neural net</li>
+        <li><strong>ML for calibration</strong>: auto-tune controller params (SwRI: weeks → hours)</li>
+      </ul>
+      <p>Model must be <strong>small enough for ECU</strong> — export to C/ONNX.</p>
+    </div></details>
+
+    <details class="sec"><summary>5. Your Pitch (First 2 Min)</summary><div class="in">
+      <table class="ptable">
+        <tr><th>They need</th><th>You have</th></tr>
+        <tr><td>ML model dev + evaluation</td><td>Hackathon: ExtraTrees+XGBoost+LightGBM, F1 0.946. MIMIC-IV evaluation pipeline.</td></tr>
+        <tr><td>Traceable data→train→validate</td><td>MIMIC-IV: perplexity 34.4→9, exact-match 0.14 — surface metrics lie.</td></tr>
+        <tr><td>Signal processing / physical modelling</td><td>NAPC 2025 flame analysis. GPR temperature inference.</td></tr>
+        <tr><td>SiL / control engineering</td><td>Honest gap — willing to learn.</td></tr>
+        <tr><td>Powertrain / aftertreatment</td><td>Honest gap — but prepped (explain NOx/slip tradeoff).</td></tr>
+      </table>
+    </div></details>
+
+    <details class="sec"><summary>6. Likely Questions (60 min = deeper)</summary><div class="in">
+      <div class="qa"><div class="q">Q: Tell me about yourself.</div><div class="a">MSc Data-Driven Health at KTH, GPA 4.80/5.00. ML pipelines from raw data to evaluated results. Hackathon ensemble (F1 0.946) — I pick and combine models for tabular data, which is what sensor signals are. MIMIC-IV: perplexity halved but exact-match flat — surface metrics lie, so I build evaluation alongside the model.</div></div>
+      <div class="qa"><div class="q">Q: What do you know about SCR?</div><div class="a">Urea → NH₃ → reacts with NOx on catalyst → N₂+H₂O. Tradeoff: too much = ammonia slip; too little = NOx passes through. Dosing depends on temp, flow, NOx, catalyst age, stored ammonia. Current controllers use feedforward map + NOx feedback, but calibrating across all conditions is slow — ML could help.</div></div>
+      <div class="qa"><div class="q">Q: What ML approach?</div><div class="a">Tabular sensor inputs → start with gradient-boosted trees (fast, interpretable). Sequence modelling → LSTM or temporal CNN. Learned dosing policy → RL (harder to validate). All cases: small enough for C/ONNX, benchmark vs existing controller on same simulated cycles.</div></div>
+      <div class="qa"><div class="q">Q: What is SiL?</div><div class="a">Compiled ECU code on PC + simulated plant. Between MiL and HiL. Thousands of cycles overnight, fair benchmark, catches code-level issues.</div></div>
+      <div class="qa"><div class="q">Q: No control background — why you?</div><div class="a">Core deliverable is ML pipeline — data prep, model selection, rigorous benchmarking. I catch when models look good but fail on real metrics. I learn domains fast: clinical data, medical imaging, health informatics (none before KTH), NAPC paper = combustion physics from scratch.</div></div>
+      <div class="qa"><div class="q">Q: How would you validate?</div><div class="a">Three layers: (1) ML: deterministic train/val/test splits. (2) SiL: WHTC, highway, cold start, DPF regen — compare NOx conversion, NH₃ slip, AdBlue vs reference. (3) Robustness: unseen conditions, degraded catalyst. Measure what matters (NOx under limit, slip under 10 ppm), not just RMSE.</div></div>
+      <div class="qa"><div class="q">Q: What drive cycles?</div><div class="a">WHTC (transient, type-approval), WHSC (steady-state). Real-world: highway (high temp, easy), urban stop-go (low temp), cold start (below light-off), DPF regen (temp spike).</div></div>
+    </div></details>
+
+    <details class="sec"><summary>7. Questions to Ask Kim</summary><div class="in">
+      <p class="hint">Pick 3–4. 60-min meeting — more room.</p>
+      <ul>
+        <li><strong>Which ML role in this thesis?</strong> Dosing controller, virtual sensor, catalyst model?</li>
+        <li><strong>SiL setup?</strong> Simulink plant? Available signals? Interface for custom controller?</li>
+        <li><strong>Training data?</strong> Test-bench, truck logs, simulated — how much?</li>
+        <li><strong>Reference controller?</strong> Production SCR or specific baseline?</li>
+        <li><strong>Target emission standard?</strong> Euro VI or Euro VII?</li>
+        <li><strong>One student or two?</strong></li>
+        <li><strong>Paid?</strong></li>
+        <li><strong>Day-to-day supervisor?</strong></li>
+      </ul>
+    </div></details>
+
+    <details class="sec"><summary>8. Vocabulary</summary><div class="in">
+      <div style="overflow-x:auto">
+      <table class="vtable">
+        <tr><td>SCR</td><td>Selective Catalytic Reduction</td></tr>
+        <tr><td>AdBlue</td><td>32.5% urea solution (DEF in US)</td></tr>
+        <tr><td>NOx</td><td>Nitrogen oxides — regulated pollutant</td></tr>
+        <tr><td>NH₃ slip</td><td>Ammonia passing through unreacted (&lt;10 ppm)</td></tr>
+        <tr><td>DOC</td><td>Diesel Oxidation Catalyst</td></tr>
+        <tr><td>DPF</td><td>Diesel Particulate Filter</td></tr>
+        <tr><td>ASC</td><td>Ammonia Slip Catalyst</td></tr>
+        <tr><td>ECU</td><td>Engine Control Unit</td></tr>
+        <tr><td>SiL</td><td>Software-in-the-Loop</td></tr>
+        <tr><td>MiL</td><td>Model-in-the-Loop</td></tr>
+        <tr><td>HiL</td><td>Hardware-in-the-Loop</td></tr>
+        <tr><td>WHTC</td><td>World Harmonised Transient Cycle</td></tr>
+        <tr><td>Euro VII</td><td>Upcoming emission standard (~2027)</td></tr>
+        <tr><td>Light-off</td><td>Catalyst activation temp (~200°C)</td></tr>
+        <tr><td>Feedforward</td><td>Control from lookup table, no feedback</td></tr>
+        <tr><td>ONNX</td><td>ML model export format for embedded</td></tr>
+        <tr><td>Ageing</td><td>Catalyst degradation over time</td></tr>
+      </table>
+      </div>
+    </div></details>
+
+    <details class="sec"><summary>9. Logistics</summary><div class="in">
+      <div class="logistics">
+        <h4>Checklist</h4>
+        <ul>
+          <li>60-min Teams — deeper technical discussion than ATF</li>
+          <li>Kim = Head of Catalyst &amp; Filter — manager, not just engineer</li>
+          <li>Co-authored SAE papers on catalyst simulation — knows physics</li>
+          <li>Cover letter: ensemble ML, NAPC, GPR, MIMIC-IV evaluation</li>
+          <li>Dept: TGRPAEC, Scania CV AB / TRATON AB, Södertälje</li>
+          <li>Paid: likely (confirm during interview)</li>
+        </ul>
+      </div>
+      <p style="margin-top:10px"><strong>Key difference from ATF:</strong> ATF = signal processing + toolbox engineering. This = ML applied to a physical control problem. Lead with ML pipeline skills, show you understand NOx/slip tradeoff. Don't oversell control engineering — Kim will know.</p>
+    </div></details>
+  </div>
+</div>
+
+<script>
+// SHA-256 hash of "saumya2027"
+async function sha256(s){const b=new TextEncoder().encode(s);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('')}
+
+let correctHash=null;
+(async()=>{correctHash=await sha256('saumya2027')})();
+
+const lock=document.getElementById('lock'),hub=document.getElementById('hub');
+
+// Check session
+try{if(sessionStorage.getItem('prep-unlocked')==='y'){lock.style.display='none';hub.style.display='block'}}catch(e){}
+
+document.getElementById('lock-form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const v=document.getElementById('pw').value;
+  if(!v)return;
+  const h=await sha256(v);
+  if(h===correctHash){
+    lock.style.display='none';hub.style.display='block';
+    try{sessionStorage.setItem('prep-unlocked','y')}catch(e){}
+  }else{
+    document.getElementById('lock-err').textContent='Wrong password.';
+    document.getElementById('pw').value='';document.getElementById('pw').focus();
+  }
+});
+
+function doLock(){
+  hub.style.display='none';lock.style.display='';
+  document.getElementById('pw').value='';document.getElementById('pw').focus();
+  try{sessionStorage.removeItem('prep-unlocked')}catch(e){}
+}
+
+// Tabs
+document.getElementById('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('.tab');if(!b)return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  b.classList.add('on');
+  document.getElementById('p-'+b.dataset.t).classList.add('on');
+});
+</script>
+</body>
+</html>
