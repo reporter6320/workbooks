@@ -47,7 +47,12 @@ def main() -> None:
     if OUT.exists():
         shutil.rmtree(OUT)
     (OUT / "pages").mkdir(parents=True)
+    # Folders listed under their own heading instead of "Workbooks"
+    SPECIAL_SECTIONS = {
+        "interview-prep": "Interview prep",
+    }
     entries = []
+    special_entries: dict[str, list[tuple[str, str]]] = {k: [] for k in SPECIAL_SECTIONS}
     for folder in sorted(p for p in PAGES.iterdir() if p.is_dir()) if PAGES.exists() else []:
         dest = OUT / "pages" / folder.name
         shutil.copytree(folder, dest)
@@ -56,7 +61,10 @@ def main() -> None:
             title = page_title(folder)
             body = markdown.markdown(md.read_text(encoding="utf-8"), extensions=["tables", "fenced_code"])
             (dest / "index.html").write_text(wrap(title, "<p><a href='../../'>← All workbooks</a></p>" + body), encoding="utf-8")
-        entries.append((folder.name, page_title(folder)))
+        if folder.name in SPECIAL_SECTIONS:
+            special_entries[folder.name].append((folder.name, page_title(folder)))
+        else:
+            entries.append((folder.name, page_title(folder)))
     items = "".join(f"<li><a href='pages/{s}/'>{html.escape(t)}</a></li>" for s, t in entries) or "<li>No pages yet.</li>"
     links_file = ROOT / "links.json"
     links = json.loads(links_file.read_text(encoding="utf-8")) if links_file.exists() else []
@@ -64,7 +72,13 @@ def main() -> None:
     if links:
         li = "".join(f"<li><a href='{html.escape(l['url'], quote=True)}'>{html.escape(l['title'])}</a></li>" for l in links)
         more = f"<h2>More sites</h2><ul class='pages'>{li}</ul>"
-    (OUT / "index.html").write_text(wrap("Workbooks", f"<h1>Workbooks</h1><ul class='pages'>{items}</ul>{more}"), encoding="utf-8")
+    # Build special sections
+    special_html = ""
+    for key, heading in SPECIAL_SECTIONS.items():
+        if special_entries[key]:
+            li = "".join(f"<li><a href='pages/{s}/'>{html.escape(t)}</a></li>" for s, t in special_entries[key])
+            special_html += f"<h2>{html.escape(heading)}</h2><ul class='pages'>{li}</ul>"
+    (OUT / "index.html").write_text(wrap("Workbooks", f"<h1>Workbooks</h1><ul class='pages'>{items}</ul>{special_html}{more}"), encoding="utf-8")
     (OUT / ".nojekyll").touch()
     print(f"Built {len(entries)} page(s) into {OUT}")
 
