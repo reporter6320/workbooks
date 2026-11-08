@@ -50,6 +50,7 @@ def main() -> None:
     # Folders listed under their own heading instead of "Workbooks"
     SPECIAL_SECTIONS = {
         "encrypted": "Encrypted pages",
+        "hello-workbook": "Tools",
     }
     entries = []
     special_entries: dict[str, list[tuple[str, str]]] = {k: [] for k in SPECIAL_SECTIONS}
@@ -68,6 +69,8 @@ def main() -> None:
     items = "".join(f"<li><a href='pages/{s}/'>{html.escape(t)}</a></li>" for s, t in entries) or "<li>No pages yet.</li>"
     links_file = ROOT / "links.json"
     links = json.loads(links_file.read_text(encoding="utf-8")) if links_file.exists() else []
+    tool_links = [l for l in links if l.get("section") == "Tools"]
+    links = [l for l in links if l.get("section") != "Tools"]
     more = ""
     if links:
         li = "".join(f"<li><a href='{html.escape(l['url'], quote=True)}'>{html.escape(l['title'])}</a></li>" for l in links)
@@ -77,6 +80,8 @@ def main() -> None:
     for key, heading in SPECIAL_SECTIONS.items():
         if special_entries[key]:
             li = "".join(f"<li><a href='pages/{s}/'>{html.escape(t)}</a></li>" for s, t in special_entries[key])
+            if heading == "Tools":
+                li += "".join(f"<li><a href='{html.escape(l['url'], quote=True)}'>{html.escape(l['title'])}</a></li>" for l in tool_links)
             special_html += f"<h2>{html.escape(heading)}</h2><ul class='pages'>{li}</ul>"
     (OUT / "index.html").write_text(wrap("Workbooks", f"<h1>Workbooks</h1><ul class='pages'>{items}</ul>{special_html}{more}"), encoding="utf-8")
     (OUT / ".nojekyll").touch()
