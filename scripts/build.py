@@ -49,7 +49,7 @@ def main() -> None:
     (OUT / "pages").mkdir(parents=True)
     # Folders listed under their own heading instead of "Workbooks"
     SPECIAL_SECTIONS = {
-        "interview-prep": "Interview prep",
+        "encrypted": "Encrypted pages",
     }
     entries = []
     special_entries: dict[str, list[tuple[str, str]]] = {k: [] for k in SPECIAL_SECTIONS}
