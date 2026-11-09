@@ -36,6 +36,12 @@ def page_title(folder: Path) -> str:
     return folder.name.replace("-", " ").title()
 
 
+def is_encrypted(folder: Path) -> bool:
+    """Pages made by scripts/encrypt_page.py carry its decryption payload."""
+    f = folder / "index.html"
+    return f.exists() and 'const D={"s":' in f.read_text(encoding="utf-8")
+
+
 def wrap(title: str, body: str) -> str:
     return (f"<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'>"
             f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
@@ -64,6 +70,8 @@ def main() -> None:
             (dest / "index.html").write_text(wrap(title, "<p><a href='../../'>← All workbooks</a></p>" + body), encoding="utf-8")
         if folder.name in SPECIAL_SECTIONS:
             special_entries[folder.name].append((folder.name, page_title(folder)))
+        elif is_encrypted(folder):
+            special_entries["encrypted"].append((folder.name, page_title(folder)))
         else:
             entries.append((folder.name, page_title(folder)))
     items = "".join(f"<li><a href='pages/{s}/'>{html.escape(t)}</a></li>" for s, t in entries) or "<li>No pages yet.</li>"
