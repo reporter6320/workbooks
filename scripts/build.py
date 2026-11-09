@@ -50,10 +50,15 @@ def main() -> None:
     # Folders listed under their own heading instead of "Workbooks"
     SPECIAL_SECTIONS = {
         "encrypted": "Encrypted pages",
+        "interview-prep": "Encrypted pages",
         "hello-workbook": "Tools",
     }
     entries = []
-    special_entries: dict[str, list[tuple[str, str]]] = {k: [] for k in SPECIAL_SECTIONS}
+    # Group special pages by heading (multiple folders can share a heading)
+    from collections import OrderedDict
+    section_pages: dict[str, list[tuple[str, str]]] = OrderedDict()
+    for heading in dict.fromkeys(SPECIAL_SECTIONS.values()):
+        section_pages[heading] = []
     for folder in sorted(p for p in PAGES.iterdir() if p.is_dir()) if PAGES.exists() else []:
         dest = OUT / "pages" / folder.name
         shutil.copytree(folder, dest)
@@ -63,7 +68,7 @@ def main() -> None:
             body = markdown.markdown(md.read_text(encoding="utf-8"), extensions=["tables", "fenced_code"])
             (dest / "index.html").write_text(wrap(title, "<p><a href='../../'>← All workbooks</a></p>" + body), encoding="utf-8")
         if folder.name in SPECIAL_SECTIONS:
-            special_entries[folder.name].append((folder.name, page_title(folder)))
+            section_pages[SPECIAL_SECTIONS[folder.name]].append((folder.name, page_title(folder)))
         else:
             entries.append((folder.name, page_title(folder)))
     items = "".join(f"<li><a href='pages/{s}/'>{html.escape(t)}</a></li>" for s, t in entries) or "<li>No pages yet.</li>"
@@ -75,11 +80,11 @@ def main() -> None:
     if links:
         li = "".join(f"<li><a href='{html.escape(l['url'], quote=True)}'>{html.escape(l['title'])}</a></li>" for l in links)
         more = f"<h2>More sites</h2><ul class='pages'>{li}</ul>"
-    # Build special sections
+    # Build special sections (grouped by heading)
     special_html = ""
-    for key, heading in SPECIAL_SECTIONS.items():
-        if special_entries[key]:
-            li = "".join(f"<li><a href='pages/{s}/'>{html.escape(t)}</a></li>" for s, t in special_entries[key])
+    for heading, pages in section_pages.items():
+        if pages:
+            li = "".join(f"<li><a href='pages/{s}/'>{html.escape(t)}</a></li>" for s, t in pages)
             if heading == "Tools":
                 li += "".join(f"<li><a href='{html.escape(l['url'], quote=True)}'>{html.escape(l['title'])}</a></li>" for l in tool_links)
             special_html += f"<h2>{html.escape(heading)}</h2><ul class='pages'>{li}</ul>"
