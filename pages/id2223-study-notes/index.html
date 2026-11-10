@@ -102,6 +102,17 @@ circle.pos+text,circle.neg+text{fill:#fff!important}
 .opt.wrong{background:color-mix(in srgb,var(--bad) 18%,transparent);text-decoration:line-through}
 .muted{color:var(--muted)}
 @media(max-width:900px){.layout{grid-template-columns:1fr}#toc{position:static;max-height:none;border-bottom:1px solid var(--line)}main{max-width:none}}
+.gc{fill:var(--soft);stroke:none}.padcell{fill:none;stroke:var(--muted);stroke-dasharray:3 2}.outcell{fill:color-mix(in srgb,var(--c1) 30%,var(--card))}
+.gt{font:600 10px ui-monospace,monospace!important;fill:var(--fg)!important;pointer-events:none}
+.win{fill:none;stroke:var(--c2);stroke-width:3;rx:3;transition:x .08s,y .08s}
+rect.cur{stroke:var(--c2);stroke-width:3}
+.poolwin{fill:none;stroke:transparent;stroke-width:3}.poolwin.hl{stroke:var(--c2)}
+.bfront{fill:color-mix(in srgb,var(--c1) 55%,var(--card));stroke:var(--c1)}.bside{fill:color-mix(in srgb,var(--c1) 35%,var(--card));stroke:var(--c1)}.btop{fill:color-mix(in srgb,var(--c1) 20%,var(--card));stroke:var(--c1)}
+.blk{cursor:pointer}.blk.sel .bfront,.blk:hover .bfront{fill:var(--c2)}
+.blab{font:600 11px system-ui!important;fill:var(--fg)!important}.bshape{font:10px ui-monospace,monospace!important}
+.cbp{display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start}.cbpt{font-size:.8rem;color:var(--muted);margin-bottom:.2rem}
+table.mat{width:auto;margin:0;box-shadow:none;background:none}table.mat td{border:1px solid var(--line);padding:0;width:52px;height:34px;text-align:center;font:600 .85rem ui-monospace,monospace}
+table.mat td.hl{background:color-mix(in srgb,var(--c2) 30%,transparent)}table.mat input{width:50px;border:0;background:transparent;color:var(--fg);text-align:center;font:inherit}
 </style></head>
 <body>
 <header class="top"><a href="../../">← All workbooks</a><div class="prog"><div id="progfill"></div></div><span id="proglab"></span></header>
@@ -490,13 +501,180 @@ As p̂ → 0, the cost → ∞. So the model is strongly pushed away from confid
 | Slow training | plain GD only sees the current slope and uses one global learning rate | momentum, Nesterov, RMSProp, Adam |</p>
 <p><strong>Exam strategy:</strong> for any "what does X fix" question, find X's row in this table. Options naming problems from a <em>different</em> row are the distractors.</p>
 <hr />
+<h1>LECTURE 5: Convolutional Neural Networks</h1>
+<h2>5.1 Why plain (dense) networks struggle with images</h2>
+<p>The lecture starts by building an MNIST digit classifier with the tools from Lectures 2–4, then shows where it breaks.</p>
+<p><strong>Step 1: a one-layer network.</strong> Each MNIST image is 28×28 grey pixels. <strong>Flatten</strong> it into a vector of 784 numbers and connect every pixel to each of 10 output neurons (one per digit). For a batch of 100 images, X is 100×784, W is 784×10, and the scores are <strong>XW + b</strong>. Apply softmax to each row, use cross-entropy as the cost, and update with gradient descent, W ← W − η∇J(W). This is just softmax regression from 2.10.</p>
+<p><strong>Step 2: make it better with everything from Lecture 4.</strong> Add hidden layers (sigmoid at first), keep softmax at the output, then upgrade: <strong>He initialization</strong>, <strong>ReLU</strong>, <strong>Adam</strong>, <strong>dropout</strong> against overfitting, and a learning rate that <strong>starts fast and decays exponentially</strong>. Accuracy climbs to about 98%, then stalls.</p>
+<p><strong>Why it stalls: flattening throws away shape.</strong> Once the image is a 784-long list, the network no longer knows that pixel 29 sits directly <em>below</em> pixel 1. Digits are made of strokes and curves, which are spatial patterns, and that information is discarded before learning even starts. A dense network would have to relearn "a vertical stroke" separately at every position where it might appear.</p>
+<p><strong>And it doesn't scale.</strong> A 200×200 colour image has 120,000 inputs. A single dense layer of 1,000 neurons on top of it needs <strong>120 million weights</strong>. That's slow, memory-hungry, and easy to overfit.</p>
+<p><strong>What makes vision hard in general:</strong> the same object can appear with different <em>rotation</em>, <em>lighting</em>, <em>deformation</em> (non-rigid bending), <em>scale</em> and <em>viewpoint</em>. A good image model needs to recognize a pattern wherever and however it appears.</p>
+<p><strong>Exam (Jan Q9):</strong> why vanilla fully connected networks do poorly on MNIST → <em>they discard spatial structure by flattening images.</em> They <em>can</em> be trained with gradient descent and <em>can</em> use non-linear activations. "Too many convolution filters" doesn't apply, because they have none.</p>
+<h2>5.2 The idea: local receptive fields (inspired by the visual cortex)</h2>
+<p><strong>Hubel &amp; Wiesel (1959)</strong> recorded neurons in the visual cortex and found that many react only to stimuli in a <strong>small region</strong> of the visual field, their <em>local receptive field</em>. Some respond to horizontal lines, others to lines at other angles. Higher-level neurons combine the outputs of lower-level ones to detect more complex patterns.</p>
+<p><strong>The CNN version: a flashlight sliding over the image.</strong></p>
+<ul>
+<li>Picture a flashlight shining on a small patch, say 5×5 pixels, in the top-left of the image. The patch it lights up is the <strong>receptive field</strong>.</li>
+<li>The flashlight itself is the <strong>filter</strong> (also called a <strong>kernel</strong>). It's just a small grid of <strong>weights</strong>, for example 5×5 of them.</li>
+<li>At each position, the neuron computes the <strong>weighted sum</strong> of the pixels under the filter (element-wise multiply, then add everything up), plus a bias, then applies an activation such as ReLU.</li>
+<li>Then the flashlight <strong>slides</strong> one step and repeats, until it has covered the whole image. That sliding is the <strong>convolution</strong> operation.</li>
+<li>The grid of results is called a <strong>feature map</strong>. Each value says how strongly the pattern encoded by the filter appears at that position.</li>
+</ul>
+<p><strong>A filter is a feature detector.</strong> If the filter's weights look like a vertical edge (positive on one side, negative on the other), the feature map lights up wherever the image has a vertical edge. The network doesn't hand-design these filters: <strong>it learns their weights with backpropagation</strong>. First-layer filters typically end up detecting edges, simple colours and curves.</p>
+<div data-widget="conv"></div>
+
+<h2>5.3 Weight sharing: the key idea</h2>
+<p>Every neuron in a feature map uses <strong>the same filter weights</strong>. They're all the same flashlight, just at different positions.</p>
+<p>Why this is so powerful:</p>
+<ol>
+<li><strong>Far fewer parameters.</strong> A 5×5 filter on one channel has 25 weights + 1 bias = <strong>26 parameters</strong>, whether the image is 28×28 or 1,000×1,000. A dense layer connecting a 28×28 image to a 28×28 output needs 784 × 784 ≈ <strong>615,000</strong> weights.</li>
+<li><strong>Translation equivariance.</strong> A pattern learned at one position is automatically detected <strong>anywhere</strong> in the image. A "7" in the corner and a "7" in the middle activate the same filter. A dense network would have to learn both separately.</li>
+<li><strong>Local connectivity.</strong> Each neuron only looks at its small receptive field, which matches the fact that nearby pixels are strongly related and distant pixels much less so.</li>
+</ol>
+<p><strong>Exam (Jan Q8, re-exam Q10):</strong> why do all neurons in a conv layer share the same weights → <em>to reduce the number of parameters</em> / <em>to detect the same feature anywhere in the image.</em> The wrong options:</p>
+<ul>
+<li>Weight sharing doesn't "ensure each neuron learns a different feature". It's the opposite, since all positions detect the <em>same</em> feature. Different features come from using <em>several filters</em> (5.5).</li>
+<li>It doesn't eliminate bias terms or make pooling unnecessary.</li>
+<li>"Increase model size" is backwards.</li>
+<li>"Prevent overfitting <em>entirely</em>": nothing does that.</li>
+</ul>
+<div data-widget="params"></div>
+
+<h2>5.4 Output size: padding and stride</h2>
+<p><strong>Without padding, the image shrinks.</strong> A 5×5 filter can only be placed where it fits completely inside the image. On a 32×32 image, its top-left corner can sit at positions 1 to 28 in each direction, so the output is <strong>28×28</strong>. In general, with input size n and filter size f, the output is n − f + 1.</p>
+<p><strong>Zero padding</strong> adds a border of zeros around the input so the filter can also be centred on edge pixels. With padding p = (f − 1)/2, the output keeps the <strong>same size</strong> as the input. In TensorFlow/Keras:</p>
+<ul>
+<li><code>padding="valid"</code>: <strong>no</strong> padding, so the output shrinks.</li>
+<li><code>padding="same"</code>: zero padding chosen so the output has the same size (when stride = 1).</li>
+</ul>
+<p><strong>Stride</strong> is the step between two consecutive filter positions. Stride 1 visits every position. Stride 2 skips every other one, which roughly <strong>halves</strong> the width and height and cuts computation.</p>
+<p><strong>The general formula (memorize this):</strong></p>
+<p><strong>output size = ⌊(n + 2p − f) / s⌋ + 1</strong></p>
+<p>where n is the input size, f the filter size, p the padding on each side, and s the stride.</p>
+<p><strong>Worked examples:</strong></p>
+<ul>
+<li>32×32, f = 5, p = 0, s = 1 → (32 + 0 − 5)/1 + 1 = <strong>28</strong> ← <em>re-exam Q11</em></li>
+<li>32×32, f = 5, p = 2, s = 1 → (32 + 4 − 5)/1 + 1 = <strong>32</strong> ("same")</li>
+<li>28×28, f = 3, p = 1, s = 2 → ⌊(28 + 2 − 3)/2⌋ + 1 = 13 + 1 = <strong>14</strong></li>
+<li>7×7, f = 3, p = 0, s = 2 → (7 − 3)/2 + 1 = <strong>3</strong></li>
+</ul>
+<p><strong>Exam traps for re-exam Q11:</strong> 32×32 would need padding. 30×30 is what a 3×3 filter gives. 27×27 is an off-by-one (forgetting the +1).</p>
+<div data-widget="convsize"></div>
+
+<h2>5.5 Many feature maps, and colour images</h2>
+<p>One filter detects one kind of pattern. To detect edges at different angles, corners, colour blobs and so on, a convolutional layer applies <strong>many filters in parallel</strong>. Each produces its own feature map, and the maps are stacked into a 3-D output volume: <strong>height × width × number of filters</strong>.</p>
+<p><strong>Input channels.</strong> A colour image has 3 channels (R, G, B). A filter therefore has a <strong>depth equal to the number of input channels</strong>: a "5×5" filter on an RGB image really has 5×5×3 = 75 weights (+1 bias). At each position, it sums over all channels at once. The next layer's input has as many channels as the previous layer had filters, so a 5×5 filter there has 5×5×32 weights if the previous layer produced 32 maps.</p>
+<p><strong>Parameter count of a conv layer:</strong></p>
+<p><strong>params = (f × f × C_in + 1) × C_out</strong></p>
+<p>Example: 5×5 filters, 1 input channel, 32 filters → (25 + 1) × 32 = <strong>832</strong>. The next layer, 5×5 with 32 → 64 channels → (5·5·32 + 1) × 64 = <strong>51,264</strong>. Compare that with the millions a dense layer would need.</p>
+<h2>5.6 Pooling layers</h2>
+<p>After a convolution and its activation, a <strong>pooling layer</strong> shrinks (<em>subsamples</em>) each feature map.</p>
+<ul>
+<li>Each pooling neuron looks at a small window (typically <strong>2×2 with stride 2</strong>) of one feature map and <strong>aggregates</strong> it into a single number:</li>
+<li><strong>Max pooling</strong>: keep the largest value. "Was this feature present <em>anywhere</em> in this little window?"</li>
+<li><strong>Average (mean) pooling</strong>: keep the average.</li>
+<li><strong>A pooling neuron has no weights.</strong> There's nothing to learn, only a fixed aggregation function.</li>
+<li>Pooling works on each channel separately, so the number of channels stays the same. Only width and height shrink.</li>
+</ul>
+<p><strong>Why pool?</strong></p>
+<ol>
+<li><strong>Less computation and memory, and fewer parameters later.</strong> A 2×2/stride-2 pool cuts each map to 1/4 of its size.</li>
+<li><strong>Some invariance to small shifts.</strong> If a feature moves by one pixel but stays inside the same 2×2 window, the max doesn't change.</li>
+<li><strong>Larger receptive fields.</strong> After pooling, a 5×5 filter in the next layer covers a larger area of the original image, so deeper layers can see bigger patterns such as parts and whole objects.</li>
+</ol>
+<p>The cost is that you lose some precise position information, which is fine for classification but can matter for tasks like segmentation.</p>
+<div data-widget="pool"></div>
+
+<h2>5.7 Flatten and dense layers: classification</h2>
+<p>The convolution and pooling stages turn the image into a stack of small feature maps (the <em>what is where</em> summary). To classify, we need one score per class:</p>
+<ol>
+<li><strong>Flatten</strong> the final stack of maps into a single 1-D vector. Flattening <em>here</em> is fine, because the spatial patterns have already been extracted into features.</li>
+<li>Feed that vector into one or more <strong>dense (fully connected) layers</strong>, often with <strong>dropout</strong> between them.</li>
+<li>The <strong>final dense layer has one neuron per class</strong> (10 for digits) with <strong>softmax</strong>, so the output is a probability for each class.</li>
+</ol>
+<p><strong>The whole pipeline in one line:</strong> one image becomes a <em>stack of filtered images</em> (convolution) → a stack with no negative values (ReLU) → a smaller stack (pooling) → repeat, with each module's output feeding the next → flatten → dense → softmax.</p>
+<h2>5.8 A complete CNN for MNIST (from the slides)</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Operation</th>
+<th>Output shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>| Input | 28×28 grey image | [batch, 28, 28, 1] |
+| Conv 1 | 32 filters, 5×5, padding <em>same</em>, ReLU | [batch, 28, 28, 32] |
+| Pool 1 | max 2×2, stride 2 | [batch, 14, 14, 32] |
+| Conv 2 | 64 filters, 5×5, padding <em>same</em>, ReLU | [batch, 14, 14, 64] |
+| Pool 2 | max 2×2, stride 2 | [batch, 7, 7, 64] |
+| Flatten | — | [batch, 3136] (= 7·7·64) |
+| Dense | 1,024 neurons, ReLU (+ dropout) | [batch, 1024] |
+| Output | 10 neurons, softmax | [batch, 10] |</p>
+<p>How to read it:</p>
+<ul>
+<li><strong>Padding "same"</strong> keeps 28×28 through Conv 1, and each pool halves the size: 28 → 14 → 7.</li>
+<li>The <strong>channel count grows</strong> (1 → 32 → 64) while the <strong>spatial size shrinks</strong>. The network trades <em>where</em> for <em>what</em>: fewer positions, more kinds of features.</li>
+<li><strong>Parameters:</strong> Conv 1 has (5·5·1 + 1)·32 = 832. Conv 2 has (5·5·32 + 1)·64 = 51,264. Dense has 3,136·1,024 + 1,024 ≈ <strong>3.2 million</strong>, and the output layer 10,250. <strong>The dense layer holds about 98% of all parameters.</strong> The convolutions do the hard work with very few weights. That's the same observation as AlexNet's FC head in Lab 2.</li>
+</ul>
+<div data-widget="cnnflow"></div>
+
+<h2>5.9 Training a CNN: backprop through a convolution</h2>
+<p>Convolutional layers are trained with ordinary backpropagation. The only new part is weight sharing. The slides' example: input <strong>X</strong> is 3×3, one filter <strong>W</strong> is 2×2, no padding, stride 1. The output <strong>H</strong> is (3 − 2)/1 + 1 = <strong>2×2</strong>.</p>
+<p><strong>Forward pass.</strong> Each output is the filter placed on one 2×2 patch:</p>
+<ul>
+<li>h₁₁ = W₁₁X₁₁ + W₁₂X₁₂ + W₂₁X₂₁ + W₂₂X₂₂</li>
+<li>h₁₂ = W₁₁X₁₂ + W₁₂X₁₃ + W₂₁X₂₂ + W₂₂X₂₃</li>
+<li>h₂₁ = W₁₁X₂₁ + W₁₂X₂₂ + W₂₁X₃₁ + W₂₂X₃₂</li>
+<li>h₂₂ = W₁₁X₂₂ + W₁₂X₂₃ + W₂₁X₃₂ + W₂₂X₃₃</li>
+</ul>
+<p><strong>Backward pass.</strong> The error is the sum of the error contributions of all outputs: E = E_h11 + E_h12 + E_h21 + E_h22. Because the <strong>same W₁₁ was used in all four outputs</strong>, its gradient is the <strong>sum over every place it was used</strong> (the "several paths" chain rule from 3.7):</p>
+<p>∂E/∂W₁₁ = (∂E/∂h₁₁)·X₁₁ + (∂E/∂h₁₂)·X₁₂ + (∂E/∂h₂₁)·X₂₁ + (∂E/∂h₂₂)·X₂₂</p>
+<p>since ∂h₁₁/∂W₁₁ = X₁₁, ∂h₁₂/∂W₁₁ = X₁₂, and so on. In words: <strong>each shared weight collects gradient from every position the filter visited, each time multiplied by the input pixel it touched there.</strong> That sum is itself a convolution of the input with the output gradients.</p>
+<p><strong>Update</strong> as usual: W ← W − η·∂E/∂W, for all four weights.</p>
+<div data-widget="convbp"></div>
+
+<h2>5.10 Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>One-line meaning</th>
+<th>Why it exists</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>| Receptive field | the small input region one neuron sees | nearby pixels matter most |
+| Filter / kernel | small learned weight grid = feature detector | learn edges, curves, then parts |
+| Weight sharing | all positions use the same filter | far fewer parameters; detect a feature anywhere |
+| Padding | zeros around the border | keep the size ("same"), use edge pixels |
+| Stride | step between filter positions | downsample, save computation |
+| Feature maps | one output map per filter | detect many kinds of features |
+| Pooling | max/mean over small windows, no weights | shrink maps, shift tolerance, bigger receptive fields |
+| Flatten + dense | features → class scores | final classification with softmax |
+| Output size | ⌊(n + 2p − f)/s⌋ + 1 | exam calculation |
+| Params per conv layer | (f·f·C_in + 1)·C_out | independent of image size |</p>
+<hr />
 <h1>Past exams</h1>
 <h2>Self-check quiz</h2>
 <div data-widget="quiz"></div>
 
-<h2>Later topics on the exams (these get detailed notes once you upload those lectures)</h2>
+<h2>Later topics on the exams (these get detailed notes once you upload those lectures; CNNs are now Lecture 5 above)</h2>
 <ul>
-<li><strong>CNNs:</strong> an MLP flattens an image into a long vector, which discards which pixels are next to each other, and needs a huge number of weights. A convolution slides one small filter across the whole image. <strong>Shared weights</strong> mean far fewer parameters, and a feature like an edge is detected wherever it appears. Output size = (n − f + 2p)/s + 1, so a 5×5 filter on a 32×32 image gives 28×28.</li>
 <li><strong>RNNs → attention → Transformers:</strong> an RNN squeezes the whole past into one hidden state, so distant information fades. Attention lets each step look directly at any earlier state. Transformers drop recurrence entirely, so all positions are processed <strong>in parallel</strong>. In self-attention, Q, K and V all come from the same sequence. Multiple heads let the model attend to several kinds of relationships at once.</li>
 <li><strong>Feature stores and pipelines:</strong> compute features once and reuse them identically in training and inference, which avoids training/serving skew. Time travel retrieves feature values <em>as they were</em> at a past time, so training data is reproducible. A feature view joins and selects features. Precomputed features cost storage but are fast. On-demand features save storage but add latency. Use event time, not processing time, so late and out-of-order events land in the correct window.</li>
 <li><strong>Testing and monitoring:</strong> feature unit tests require feature logic written as independent, testable functions. Contract tests check schema, ranges and meaning. Lineage traces data → features → model → deployment. Guardrails filter harmful or invalid outputs at runtime.</li>
@@ -964,5 +1142,177 @@ document.addEventListener('DOMContentLoaded', () => {
   function prog() { const n = checkable.filter(k => done[k]).length; bar.style.width = (100 * n / checkable.length) + '%'; lab.textContent = `${n}/${checkable.length} sections understood`; }
   prog();
 });
+
+// ================= Lecture 5: CNN widgets =================
+const DIGIT7 = [
+  [0,0,0,0,0,0,0,0],[0,1,1,1,1,1,1,0],[0,0,0,0,0,1,1,0],[0,0,0,0,1,1,0,0],
+  [0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,1,1,0,0,0,0],[0,0,1,1,0,0,0,0]];
+const KERNELS = {
+  'vertical edge': [[1,0,-1],[1,0,-1],[1,0,-1]], 'horizontal edge': [[1,1,1],[0,0,0],[-1,-1,-1]],
+  'diagonal ↘': [[2,-1,-1],[-1,2,-1],[-1,-1,2]], 'blur (average)': [[1/9,1/9,1/9],[1/9,1/9,1/9],[1/9,1/9,1/9]]
+};
+function gridSVG(parent, M, { cell = 26, x0 = 0, y0 = 0, cls = 'gc', fmt = v => '', color = null } = {}) {
+  const g = S('g', {}, parent), cells = [];
+  M.forEach((row, i) => row.forEach((v, j) => {
+    const r = S('rect', { x: x0 + j * cell, y: y0 + i * cell, width: cell - 1, height: cell - 1, class: cls }, g);
+    if (color) r.setAttribute('style', 'fill:' + color(v));
+    const t = S('text', { x: x0 + j * cell + cell / 2, y: y0 + i * cell + cell / 2 + 4, 'text-anchor': 'middle', class: 'gt' }, g); t.textContent = fmt(v);
+    cells.push({ r, t, i, j });
+  }));
+  return { g, cells };
+}
+const heat = v => { const a = Math.max(-1, Math.min(1, v)); return a >= 0 ? `color-mix(in srgb, var(--c1) ${Math.round(a * 85)}%, var(--card))` : `color-mix(in srgb, var(--c2) ${Math.round(-a * 85)}%, var(--card))`; };
+
+W.conv = root => {
+  card(root, 'a filter sliding over a digit', 'Pick a filter and step the "flashlight" across the image. Each output value is the sum of (pixel × weight) under the 3×3 window. Blue = strong positive response, orange = negative. Notice the same 9 weights are used at every position.');
+  const s = S('svg', { viewBox: '0 0 600 260', class: 'plot' }, root);
+  const o = out(root); let kname = 'vertical edge', pos = 0, timer;
+  const n = 8, f = 3, m = n - f + 1, C = 26;
+  S('text', { x: 10, y: 14, class: 'axl' }, s).textContent = 'input (8×8)';
+  S('text', { x: 255, y: 14, class: 'axl' }, s).textContent = 'filter (3×3)';
+  S('text', { x: 395, y: 14, class: 'axl' }, s).textContent = 'feature map (6×6)';
+  const inp = gridSVG(s, DIGIT7, { x0: 10, y0: 22, color: v => v ? 'var(--fg)' : 'var(--soft)' });
+  const win = S('rect', { width: 3 * C - 1, height: 3 * C - 1, class: 'win' }, s);
+  let kg = S('g', {}, s), og = S('g', {}, s);
+  const conv = (K) => Array.from({ length: m }, (_, i) => Array.from({ length: m }, (_, j) => { let z = 0; for (let a = 0; a < f; a++) for (let b = 0; b < f; b++) z += K[a][b] * DIGIT7[i + a][j + b]; return z; }));
+  const draw = () => {
+    const K = KERNELS[kname], O = conv(K), mx = Math.max(...O.flat().map(Math.abs)) || 1;
+    kg.innerHTML = ''; gridSVG(kg, K, { x0: 255, y0: 22, cell: 34, color: v => heat(v / 2), fmt: v => Math.abs(v) < 1 && v ? (1 / 9).toFixed(2).replace('0.', '.') : v });
+    og.innerHTML = ''; const i = Math.floor(pos / m), j = pos % m;
+    const og2 = gridSVG(og, O, { x0: 395, y0: 22, color: v => heat(v / mx), fmt: v => +v.toFixed(1) });
+    og2.cells.forEach(c => { if (c.i * m + c.j > pos) { c.r.setAttribute('style', 'fill:var(--soft)'); c.t.textContent = ''; } if (c.i === i && c.j === j) c.r.classList.add('cur'); });
+    win.setAttribute('x', 10 + j * C); win.setAttribute('y', 22 + i * C);
+    const K2 = K, terms = []; for (let a = 0; a < f; a++) for (let b = 0; b < f; b++) if (DIGIT7[i + a][j + b] && K2[a][b]) terms.push(+K2[a][b].toFixed(2));
+    o.innerHTML = `position (${i + 1},${j + 1}): sum of weights where the pixel is 1 = ${terms.length ? terms.join(' + ').replace(/\+ -/g, '− ') : '0'} = <b>${O[i][j].toFixed(2)}</b>. &nbsp;Output size = 8 − 3 + 1 = <b>6</b>.`;
+  };
+  const r = row(root);
+  Object.keys(KERNELS).forEach(k => btn(r, k, () => { kname = k; r.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.textContent === k)); draw(); }));
+  r.firstChild.classList.add('on');
+  const r2 = row(root);
+  btn(r2, 'Step ▶', () => { pos = Math.min(m * m - 1, pos + 1); draw(); });
+  btn(r2, 'Slide all the way', () => { clearInterval(timer); pos = 0; timer = setInterval(() => { pos++; draw(); if (pos >= m * m - 1) clearInterval(timer); }, 90); });
+  btn(r2, 'Reset', () => { clearInterval(timer); pos = 0; draw(); }, 'ghost');
+  draw();
+};
+
+W.params = root => {
+  card(root, 'dense vs convolutional: parameter count', 'Change the image size and layer settings. The dense layer\'s parameters grow with the image; the conv layer\'s don\'t, because the same filter weights are reused at every position.');
+  const o = out(root); let n = 28, c = 1, k = 5, F_ = 32;
+  const draw = () => {
+    const dense = n * n * c * (n * n * F_) , conv = (k * k * c + 1) * F_;
+    o.innerHTML = `Input ${n}×${n}×${c}, producing ${F_} maps of ${n}×${n}:<br>
+      • <b>Dense layer</b> (every input to every output): ${n}·${n}·${c} × ${n}·${n}·${F_} = <b>${dense.toLocaleString()}</b> weights<br>
+      • <b>Conv layer</b> (${k}×${k} filters, shared): (${k}·${k}·${c} + 1) × ${F_} = <b>${conv.toLocaleString()}</b> parameters<br>
+      → the conv layer is <b>${Math.round(dense / conv).toLocaleString()}×</b> smaller.`;
+  };
+  const r = row(root);
+  slider(r, 'image size n', 8, 224, 4, n, v => { n = v; draw(); }); slider(r, 'input channels', 1, 3, 1, c, v => { c = v; draw(); });
+  const r2 = row(root);
+  slider(r2, 'filter size f', 1, 7, 2, k, v => { k = v; draw(); }); slider(r2, 'number of filters', 1, 128, 1, F_, v => { F_ = v; draw(); });
+};
+
+W.convsize = root => {
+  card(root, 'padding and stride: output size', 'Grey squares are the input, dashed squares are zero padding, and each blue dot is one filter position (its top-left corner). Count the dots in a row: that\'s the output size.');
+  const s = S('svg', { viewBox: '0 0 600 300', class: 'plot' }, root); const o = out(root);
+  let n = 7, f = 3, p = 0, st = 1;
+  const draw = () => {
+    s.innerHTML = ''; const N = n + 2 * p, C = Math.min(26, 270 / N), x0 = 20, y0 = 15;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const pad = i < p || j < p || i >= n + p || j >= n + p;
+      S('rect', { x: x0 + j * C, y: y0 + i * C, width: C - 1, height: C - 1, class: pad ? 'padcell' : 'gc' }, s);
+    }
+    const m = Math.floor((n + 2 * p - f) / st) + 1;
+    if (m > 0) {
+      S('rect', { x: x0, y: y0, width: f * C - 1, height: f * C - 1, class: 'win' }, s);
+      for (let a = 0; a < m; a++) for (let b = 0; b < m; b++) S('circle', { cx: x0 + b * st * C + C / 2, cy: y0 + a * st * C + C / 2, r: Math.max(2.5, C / 6), fill: 'var(--c1)' }, s);
+      const C2 = Math.min(26, 230 / m), x1 = 340;
+      S('text', { x: x1, y: 12, class: 'axl' }, s).textContent = `output ${m}×${m}`;
+      for (let a = 0; a < m; a++) for (let b = 0; b < m; b++) S('rect', { x: x1 + b * C2, y: y0 + 4 + a * C2, width: C2 - 1, height: C2 - 1, class: 'outcell' }, s);
+    }
+    const exact = (n + 2 * p - f) / st;
+    o.innerHTML = `output = ⌊(n + 2p − f)/s⌋ + 1 = ⌊(${n} + ${2 * p} − ${f})/${st}⌋ + 1 = ${m > 0 ? `⌊${+exact.toFixed(2)}⌋ + 1 = <b>${m}</b>` : '<b>filter doesn\'t fit</b>'}` +
+      (p === (f - 1) / 2 && st === 1 ? ' ✅ "same" padding: size preserved' : p === 0 ? ' (padding "valid": the output shrinks)' : '') +
+      (exact % 1 && m > 0 ? ' ⚠ the stride doesn\'t divide evenly, so the last column and row of the input are skipped' : '');
+  };
+  const r = row(root);
+  slider(r, 'input n', 4, 12, 1, n, v => { n = v; draw(); }); slider(r, 'filter f', 1, 5, 1, f, v => { f = v; draw(); });
+  const r2 = row(root);
+  slider(r2, 'padding p', 0, 3, 1, p, v => { p = v; draw(); }); slider(r2, 'stride s', 1, 3, 1, st, v => { st = v; draw(); });
+  const r3 = row(root);
+  btn(r3, 'Exam: 32×32, 5×5, no padding', () => { o.innerHTML = 'n = 32, f = 5, p = 0, s = 1 → (32 − 5)/1 + 1 = <b>28 × 28</b> (re-exam Q11). Try the same idea with the sliders: n = 7, f = 5 → 3.'; }, 'ghost');
+};
+
+W.pool = root => {
+  card(root, 'max vs average pooling', 'A 2×2 window with stride 2 turns each 4×4 feature map into 2×2. Hover over an output cell to see its window. Pooling has no weights; it only takes the max or the mean.');
+  const s = S('svg', { viewBox: '0 0 600 150', class: 'plot' }, root); const o = out(root);
+  let M = [[1, 3, 2, 1], [4, 6, 0, 2], [3, 1, 1, 0], [1, 2, 5, 3]], mode = 'max';
+  const draw = () => {
+    s.innerHTML = ''; const C = 30;
+    S('text', { x: 10, y: 12, class: 'axl' }, s).textContent = 'feature map 4×4';
+    const g = gridSVG(s, M, { x0: 10, y0: 18, cell: C, fmt: v => v, color: v => heat(v / 7) });
+    const P = [[0, 0], [0, 0]].map((r, a) => r.map((_, b) => { const w = [M[2 * a][2 * b], M[2 * a][2 * b + 1], M[2 * a + 1][2 * b], M[2 * a + 1][2 * b + 1]]; return mode === 'max' ? Math.max(...w) : w.reduce((x, y) => x + y) / 4; }));
+    S('text', { x: 200, y: 12, class: 'axl' }, s).textContent = (mode === 'max' ? 'max' : 'average') + ' pool 2×2, stride 2';
+    const out2 = gridSVG(s, P, { x0: 220, y0: 33, cell: 45, fmt: v => +v.toFixed(2), color: v => heat(v / 7) });
+    [[0, 0], [0, 2], [2, 0], [2, 2]].forEach(([a, b], k) => S('rect', { x: 10 + b * C, y: 18 + a * C, width: 2 * C - 1, height: 2 * C - 1, class: 'poolwin q' + k }, s));
+    out2.cells.forEach((c, k) => { c.r.style.cursor = 'pointer'; c.r.onmouseenter = () => { s.querySelectorAll('.poolwin').forEach(w => w.classList.toggle('hl', w.classList.contains('q' + (c.i * 2 + c.j)))); }; });
+    o.innerHTML = `16 values → 4 values (¼ of the size), channels unchanged, <b>0 parameters</b>. Shift tolerance: press "shift the 6", and the max-pooled output often doesn't change.`;
+  };
+  const r = row(root);
+  btn(r, 'max pooling', () => { mode = 'max'; draw(); }); btn(r, 'average pooling', () => { mode = 'avg'; draw(); });
+  btn(r, 'shift the 6 by one pixel', () => { M = [[1, 3, 2, 1], [6, 4, 0, 2], [3, 1, 1, 0], [1, 2, 5, 3]]; draw(); }, 'ghost');
+  btn(r, 'reset', () => { M = [[1, 3, 2, 1], [4, 6, 0, 2], [3, 1, 1, 0], [1, 2, 5, 3]]; draw(); }, 'ghost');
+  draw();
+};
+
+W.cnnflow = root => {
+  card(root, 'tensor shapes through the MNIST CNN', 'Each block\'s height shows the spatial size and its depth shows the number of channels. Click a block to see how its shape and parameter count are computed.');
+  const L = [
+    ['input', 28, 1, 0, 'A 28×28 grey image: 1 channel.'],
+    ['conv1 5×5×32', 28, 32, 832, 'padding "same", stride 1 → (28 + 4 − 5)/1 + 1 = 28. Params = (5·5·1 + 1)·32 = 832.'],
+    ['pool1 2×2', 14, 32, 0, '2×2, stride 2 → 28/2 = 14. Channels unchanged. 0 params.'],
+    ['conv2 5×5×64', 14, 64, 51264, '"same" keeps 14. Each filter is 5×5×32 deep. Params = (5·5·32 + 1)·64 = 51,264.'],
+    ['pool2 2×2', 7, 64, 0, '14/2 = 7. 0 params.'],
+    ['flatten', 1, 3136, 0, '7·7·64 = 3,136 numbers in one vector. 0 params.'],
+    ['dense 1024', 1, 1024, 3212288, '3,136·1,024 weights + 1,024 biases = 3,212,288 params (~98% of the model).'],
+    ['softmax 10', 1, 10, 10250, '1,024·10 + 10 = 10,250 params. Output: 10 class probabilities.']];
+  const s = S('svg', { viewBox: '0 0 640 245', class: 'plot' }, root); const o = out(root);
+  let x = 10; const tot = L.reduce((a, l) => a + l[3], 0);
+  L.forEach((l, k) => {
+    const h = l[1] > 1 ? l[1] * 5 : Math.min(150, 20 + Math.sqrt(l[2]) * 2.4), d = l[1] > 1 ? Math.min(40, 6 + Math.sqrt(l[2]) * 5) : 10;
+    const w = l[1] > 1 ? 10 : 10, y = 120 - h / 2, g = S('g', { class: 'blk' }, s);
+    S('path', { d: `M${x},${y} l${d * .6},${-d * .45} l${w},0 l0,${h} l${-d * .6},${d * .45} z`, class: 'bside' }, g);
+    S('rect', { x, y, width: w, height: h, class: 'bfront' }, g);
+    S('path', { d: `M${x},${y} l${d * .6},${-d * .45} l${w},0 l${-d * .6},${d * .45} z`, class: 'btop' }, g);
+    const t = S('text', { x: x + 6, y: 238, 'text-anchor': 'middle', class: 'blab' }, g); t.textContent = l[0].split(' ')[0];
+    const t2 = S('text', { x: x + 6, y: 222, 'text-anchor': 'middle', class: 'bshape' }, g); t2.textContent = l[1] > 1 ? `${l[1]}×${l[1]}×${l[2]}` : `${l[2]}`;
+    g.onclick = () => { s.querySelectorAll('.blk').forEach(b => b.classList.remove('sel')); g.classList.add('sel'); o.innerHTML = `<b>${l[0]}</b> → output ${l[1] > 1 ? `[batch, ${l[1]}, ${l[1]}, ${l[2]}]` : `[batch, ${l[2]}]`}. ${l[4]}`; };
+    x += Math.max(70, d * .6 + 50);
+  });
+  o.innerHTML = `Total ≈ <b>${(tot / 1e6).toFixed(2)}M</b> parameters, of which the two conv layers have only <b>${(52096).toLocaleString()}</b>. Click a block.`;
+};
+
+W.convbp = root => {
+  card(root, 'backprop through a convolution (3×3 input, 2×2 filter)', 'Hover over a filter weight to see every input pixel it touches. Because the weight is shared across all 4 output positions, its gradient is a sum of 4 terms. Edit the numbers to recompute.');
+  const X = [[1, 2, 0], [0, 1, 3], [2, 1, 1]], Wt = [[1, -1], [0, 2]], dH = [[0.5, -1], [0.2, 0.3]];
+  const box = H('div', { class: 'cbp' }, '', root); const o = out(root);
+  const mk = (name, M, ed) => { const d = H('div', { class: 'cbpm' }, `<div class="cbpt">${name}</div>`, box); const t = H('table', { class: 'mat' }, '', d);
+    M.forEach((r, i) => { const tr = H('tr', {}, '', t); r.forEach((v, j) => { const td = H('td', { 'data-i': i, 'data-j': j }, '', tr); if (ed) { const inp = H('input', { type: 'number', step: 'any', value: v }, '', td); inp.oninput = () => { M[i][j] = +inp.value || 0; draw(); }; } else td.textContent = v; }); }); return t; };
+  const tX = mk('input X', X, true), tW = mk('filter W', Wt, true), tH = mk('output H = X * W', [[0, 0], [0, 0]], false), tD = mk('∂E/∂H (given)', dH, true), tG = mk('∂E/∂W', [[0, 0], [0, 0]], false);
+  const Hm = () => [0, 1].map(i => [0, 1].map(j => Wt[0][0] * X[i][j] + Wt[0][1] * X[i][j + 1] + Wt[1][0] * X[i + 1][j] + Wt[1][1] * X[i + 1][j + 1]));
+  const G = () => [0, 1].map(a => [0, 1].map(b => [0, 1].reduce((s, i) => s + [0, 1].reduce((t, j) => t + dH[i][j] * X[i + a][j + b], 0), 0)));
+  let focus = [0, 0];
+  const draw = () => {
+    const h = Hm(), g = G();
+    tH.querySelectorAll('td').forEach(td => td.textContent = +h[td.dataset.i][td.dataset.j].toFixed(2));
+    tG.querySelectorAll('td').forEach(td => td.textContent = +g[td.dataset.i][td.dataset.j].toFixed(3));
+    const [a, b] = focus, idx = `W${a + 1}${b + 1}`;
+    tX.querySelectorAll('td').forEach(td => { const i = +td.dataset.i, j = +td.dataset.j; td.classList.toggle('hl', i - a >= 0 && i - a <= 1 && j - b >= 0 && j - b <= 1); });
+    tW.querySelectorAll('td').forEach(td => td.classList.toggle('hl', +td.dataset.i === a && +td.dataset.j === b));
+    const terms = [0, 1].flatMap(i => [0, 1].map(j => `(∂E/∂h${i + 1}${j + 1}=${dH[i][j]})·(X${i + a + 1}${j + b + 1}=${X[i + a][j + b]})`));
+    o.innerHTML = `h₁₁ = W₁₁X₁₁ + W₁₂X₁₂ + W₂₁X₂₁ + W₂₂X₂₂ = <b>${+h[0][0].toFixed(2)}</b><br>∂E/∂${idx} = ${terms.join(' + ')} = <b>${+g[a][b].toFixed(3)}</b><br><small>${idx} was used at all 4 output positions, so it collects gradient from all 4: the highlighted X pixels.</small>`;
+  };
+  tW.querySelectorAll('td').forEach(td => td.onmouseenter = () => { focus = [+td.dataset.i, +td.dataset.j]; draw(); });
+  draw();
+};
 </script>
 </body></html>
