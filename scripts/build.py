@@ -51,6 +51,7 @@ def main() -> None:
     SPECIAL_SECTIONS = {
         "encrypted": "Encrypted pages",
         "interview-prep": "Encrypted pages",
+        "trips": "Encrypted pages",
         "hello-workbook": "Tools",
     }
     entries = []
