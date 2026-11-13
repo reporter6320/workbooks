@@ -43,15 +43,19 @@ def wrap(title: str, body: str) -> str:
             f"<body>{body}</body></html>")
 
 
+MOVED = {  # old notes paths -> new home of the encrypted pages
+    "encrypted": "https://encrypt.saumya.eu/",
+    "interview-prep": "https://encrypt.saumya.eu/interview-prep/",
+    "trips": "https://encrypt.saumya.eu/trips/",
+}
+
+
 def main() -> None:
     if OUT.exists():
         shutil.rmtree(OUT)
     (OUT / "pages").mkdir(parents=True)
     # Folders listed under their own heading instead of "Workbooks"
     SPECIAL_SECTIONS = {
-        "encrypted": "Encrypted pages",
-        "interview-prep": "Encrypted pages",
-        "trips": "Encrypted pages",
         "hello-workbook": "Tools",
     }
     entries = []
@@ -90,6 +94,14 @@ def main() -> None:
                 li += "".join(f"<li><a href='{html.escape(l['url'], quote=True)}'>{html.escape(l['title'])}</a></li>" for l in tool_links)
             special_html += f"<h2>{html.escape(heading)}</h2><ul class='pages'>{li}</ul>"
     (OUT / "index.html").write_text(wrap("Workbooks", f"<h1>Workbooks</h1><ul class='pages'>{items}</ul>{special_html}{more}"), encoding="utf-8")
+    # Private pages moved to encrypt.saumya.eu; keep old addresses working.
+    for slug, url in MOVED.items():
+        d = OUT / "pages" / slug
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "index.html").write_text(
+            f"<!DOCTYPE html><meta charset='utf-8'><meta name='robots' content='noindex'>"
+            f"<meta http-equiv='refresh' content='0; url={url}'><link rel='canonical' href='{url}'>"
+            f"<title>Moved</title><p>Moved to <a href='{url}'>{url}</a></p>", encoding="utf-8")
     (OUT / ".nojekyll").touch()
     print(f"Built {len(entries)} page(s) into {OUT}")
 
