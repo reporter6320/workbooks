@@ -5,7 +5,7 @@ Interactive pages published with GitHub Pages.
 - Each page lives in `pages/<slug>/` as `index.html` (self-contained) or `index.md` (rendered automatically).
 - On every push to `main`, `.github/workflows/deploy.yml` runs `scripts/build.py`, which builds `_site/`, generates the root index, and deploys.
 - Live at: https://notes.saumya.eu (Codeberg Pages) and https://reporter6320.github.io/workbooks/
-- Password-protected pages moved to https://encrypt.saumya.eu (separate repo). This repo is fully open.
+- Password-protected pages (`encrypted`, `interview-prep`, `trips`) are AES-GCM encrypted and also mirrored at https://encrypt.saumya.eu.
 
 ## Add a page
 1. Create `pages/my-page/index.html` or `index.md`.
